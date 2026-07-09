@@ -98,3 +98,9 @@ export const itemModifierOptionExclusions = pgTable(
   },
   (table) => [primaryKey({ columns: [table.itemId, table.optionId] })],
 );
+
+// Row types, used throughout the service layer + tests.
+export type ModifierGroup = typeof modifierGroups.$inferSelect;
+export type ModifierOption = typeof modifierOptions.$inferSelect;
+export type ModifierGroupAttachment = typeof modifierGroupAttachments.$inferSelect;
+export type ItemModifierOptionExclusion = typeof itemModifierOptionExclusions.$inferSelect;

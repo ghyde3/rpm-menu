@@ -124,3 +124,10 @@ export const itemPriceVariants = pgTable("item_price_variants", {
   // addendum §2: replaces free-text label matching for happy hour.
   kind: text("kind", { enum: priceVariantKindEnum }).notNull().default("size"),
 });
+
+// Row types, used throughout the service layer + tests.
+export type Category = typeof categories.$inferSelect;
+export type Tag = typeof tags.$inferSelect;
+export type Item = typeof items.$inferSelect;
+export type ItemTag = typeof itemTags.$inferSelect;
+export type ItemPriceVariant = typeof itemPriceVariants.$inferSelect;
