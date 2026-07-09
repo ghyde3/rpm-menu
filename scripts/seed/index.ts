@@ -1,12 +1,13 @@
-// Minimal foundation seed: the venue_settings singleton row + the first
-// owner account, so `npm run db:seed` leaves a working, loggable-into
-// instance. Importing the real menu (rpm-menu-extracted.md,
-// rpm-drinks-extracted.md) is the onboarding-seed-and-runbook unit's job
-// (M3) — this script intentionally does not touch items/categories/tags.
+// Full seed: the venue_settings singleton row + the first owner account,
+// then the real menu (rpm-menu-extracted.md, rpm-drinks-extracted.md)
+// parsed at runtime and loaded through the service layer (items/categories/
+// tags/modifiers) — see import-menu.ts for the menu-import logic and its
+// hard assertions.
 import { hashPassword } from "better-auth/crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users, accounts, venueSettings, VENUE_SETTINGS_ID } from "@/db/schema";
+import { importMenu } from "./import-menu";
 
 async function main() {
   const ownerEmail = process.env.SEED_OWNER_EMAIL;
@@ -55,6 +56,8 @@ async function main() {
     });
     console.log(`Created owner account: ${ownerEmail}`);
   }
+
+  await importMenu(db);
 
   console.log("Seed complete.");
 }
