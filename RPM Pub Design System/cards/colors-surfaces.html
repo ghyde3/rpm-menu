@@ -1,0 +1,25 @@
+<!-- @dsCard group="Colors" viewport="700x180" name="Surfaces" subtitle="Board black to raised charcoal + hairlines" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; background: var(--surface-base); font-family: var(--font-heading); }
+  .wrap { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 16px; }
+  .sw { border-radius: var(--radius-md); border: 2px solid var(--border-hairline); overflow: hidden; }
+  .chip { height: 84px; }
+  .meta { padding: 8px 10px; background: var(--surface-raised); }
+  .name { color: var(--text-primary); font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+  .hex { color: var(--text-muted); font-family: var(--font-body); font-size: 12px; margin-top: 2px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="sw"><div class="chip" style="background:var(--rpm-ink)"></div><div class="meta"><div class="name">Ink</div><div class="hex">#121110 · base</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--rpm-charcoal)"></div><div class="meta"><div class="name">Charcoal</div><div class="hex">#1c1a17 · raised</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--rpm-charcoal-2)"></div><div class="meta"><div class="name">Inset</div><div class="hex">#262320 · fields</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--border-strong)"></div><div class="meta"><div class="name">Border</div><div class="hex">#4a443d · rules</div></div></div>
+  </div>
+</body>
+</html>

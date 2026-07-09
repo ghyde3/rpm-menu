@@ -1,0 +1,23 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="Text Tones" subtitle="Cream primary through steel muted, on board black" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; background: var(--surface-base); }
+  .wrap { display: flex; gap: 28px; padding: 20px 18px; align-items: baseline; flex-wrap: wrap; }
+  .t { font-family: var(--font-body); }
+  .lab { display:block; font-family: var(--font-heading); font-size: 11px; text-transform: uppercase; letter-spacing:.1em; color: var(--text-faint); margin-top: 6px; }
+  .demo { font-size: 26px; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="t"><span class="demo" style="color:var(--text-primary)">Cream</span><span class="lab">Primary · #f2ead9</span></div>
+    <div class="t"><span class="demo" style="color:var(--text-secondary)">Bone</span><span class="lab">Secondary · #cabfa9</span></div>
+    <div class="t"><span class="demo" style="color:var(--text-muted)">Steel</span><span class="lab">Muted · #8f867a</span></div>
+    <div class="t"><span class="demo" style="color:var(--text-faint)">Faint</span><span class="lab">Disabled · #5f574d</span></div>
+  </div>
+</body>
+</html>

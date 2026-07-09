@@ -1,0 +1,26 @@
+<!-- @dsCard group="Type" viewport="700x260" name="Type Scale" subtitle="Display → caption ramp" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; background: var(--surface-base); }
+  .wrap { padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; }
+  .row { display: flex; align-items: baseline; gap: 14px; color: var(--text-primary); }
+  .row span.l { font-family: var(--font-body); font-size: 11px; color: var(--text-faint); width: 90px; flex-shrink: 0; }
+  .d { font-family: var(--font-display); text-transform: uppercase; color: var(--text-primary); }
+  .h { font-family: var(--font-heading); font-weight: 600; }
+  .b { font-family: var(--font-body); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row"><span class="l">h1 · 68</span><span class="d" style="font-size:52px">Board</span></div>
+    <div class="row"><span class="l">h2 · 48</span><span class="d" style="font-size:38px">Section</span></div>
+    <div class="row"><span class="l">title · 22</span><span class="h" style="font-size:22px;font-style:italic">Menu Item</span></div>
+    <div class="row"><span class="l">body · 17</span><span class="b" style="font-size:17px">Description text</span></div>
+    <div class="row"><span class="l">caption · 14</span><span class="b" style="font-size:14px;color:var(--text-muted)">Fine print &amp; notes</span></div>
+  </div>
+</body>
+</html>

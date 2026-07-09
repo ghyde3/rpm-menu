@@ -1,0 +1,24 @@
+<!-- @dsCard group="Brand" viewport="700x150" name="Leader Row" subtitle="Title → dotted leader → price, the signature board row" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; background: var(--surface-base); }
+  .wrap { padding: 24px 20px; }
+  .row { display: flex; align-items: flex-end; gap: 10px; }
+  .name { font-family: var(--font-heading); font-weight: 700; font-style: italic; text-transform: uppercase; font-size: 26px; color: var(--accent-secondary); white-space: nowrap; }
+  .lead { flex: 1; height: 0; border-bottom: 2px dotted var(--leader-dots); margin-bottom: .4em; }
+  .price { font-family: var(--font-heading); font-weight: 700; color: var(--accent-price); font-size: 30px; line-height: 1; }
+  .price .c { font-size: .52em; vertical-align: .5em; }
+  .desc { font-family: var(--font-body); color: var(--text-secondary); font-size: 16px; margin-top: 8px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row"><span class="name">The Bratweiler</span><span class="lead"></span><span class="price">11<span class="c">99</span></span></div>
+    <div class="desc">Big bratwurst topped w/ sautéed kraut, peppers, onions &amp; sharp cheddar on a hoagie roll.</div>
+  </div>
+</body>
+</html>

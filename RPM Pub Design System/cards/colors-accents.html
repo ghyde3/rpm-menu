@@ -1,0 +1,25 @@
+<!-- @dsCard group="Colors" viewport="700x180" name="Accents" subtitle="Hot-rod red, flame orange, beer amber, kustom green" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; background: var(--surface-base); font-family: var(--font-heading); }
+  .wrap { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 16px; }
+  .sw { border-radius: var(--radius-md); border: 2px solid var(--border-hairline); overflow: hidden; }
+  .chip { height: 84px; }
+  .meta { padding: 8px 10px; background: var(--surface-raised); }
+  .name { color: var(--text-primary); font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+  .hex { color: var(--text-muted); font-family: var(--font-body); font-size: 12px; margin-top: 2px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="sw"><div class="chip" style="background:var(--rpm-red)"></div><div class="meta"><div class="name">Hot Rod Red</div><div class="hex">#d63a2c · primary</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--rpm-orange)"></div><div class="meta"><div class="name">Flame Orange</div><div class="hex">#e8632a · titles</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--rpm-amber)"></div><div class="meta"><div class="name">Beer Amber</div><div class="hex">#e5b833 · prices</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--rpm-toxic)"></div><div class="meta"><div class="name">Kustom Green</div><div class="hex">#a8c81e · new</div></div></div>
+  </div>
+</body>
+</html>

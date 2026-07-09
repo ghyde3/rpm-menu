@@ -1,0 +1,23 @@
+<!-- @dsCard group="Spacing" viewport="700x200" name="Radii & Borders" subtitle="Hard-edged: sm 2 · md 4 · chunky 3px rules" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; background: var(--surface-base); font-family: var(--font-body); }
+  .wrap { padding: 20px; display: flex; gap: 20px; align-items: center; }
+  .box { width: 92px; height: 68px; background: var(--surface-raised); border: 2px solid var(--border-strong); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; }
+  .box span { font-size: 11px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="box" style="border-radius:0"><span>none · 0</span></div>
+    <div class="box" style="border-radius:2px"><span>sm · 2</span></div>
+    <div class="box" style="border-radius:4px"><span>md · 4</span></div>
+    <div class="box" style="border-radius:6px"><span>lg · 6</span></div>
+    <div class="box" style="border-radius:0;border-left:3px solid var(--accent-primary)"><span>accent 3px</span></div>
+  </div>
+</body>
+</html>

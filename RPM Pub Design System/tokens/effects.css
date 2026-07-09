@@ -1,0 +1,39 @@
+/* RPM Pub — Borders, radii, shadows, textures
+ * The board aesthetic is FLAT and hard-edged: minimal rounding, chunky
+ * borders, matte surfaces. Shadows are used only to lift chrome/controls,
+ * never soft glowy drop shadows.
+ */
+:root {
+  /* Radii — mostly square. Bar signage isn't rounded. */
+  --radius-none: 0;
+  --radius-sm: 2px;    /* inputs, chips */
+  --radius-md: 4px;    /* cards, buttons */
+  --radius-lg: 6px;    /* modals */
+  --radius-pill: 999px;/* status dots / round toggles only */
+
+  /* Borders */
+  --bw-hair: 1px;
+  --bw: 2px;      /* default control border */
+  --bw-chunk: 3px;/* section dividers, framed panels */
+
+  /* Shadows — hard, low, warm-black */
+  --shadow-sm: 0 1px 0 rgba(0,0,0,0.5);
+  --shadow-md: 0 2px 0 rgba(0,0,0,0.6), 0 6px 14px rgba(0,0,0,0.5);
+  --shadow-lift: 0 4px 0 rgba(0,0,0,0.6), 0 12px 28px rgba(0,0,0,0.55);
+  --shadow-inset: inset 0 0 0 1px rgba(255,255,255,0.03);
+
+  /* Glow — used only on TV board accents / live status */
+  --glow-red: 0 0 18px rgba(214,58,44,0.5);
+  --glow-toxic: 0 0 14px rgba(168,200,30,0.55);
+
+  /* Transitions */
+  --ease: cubic-bezier(0.2, 0, 0, 1); /* @kind other */
+  --dur-fast: 120ms;                  /* @kind other */
+  --dur: 180ms;                       /* @kind other */
+
+  /* Textures / overlays — subtle board grain via layered gradients */
+  --grain: radial-gradient(rgba(255,255,255,0.018) 1px, transparent 1px); /* @kind other */
+  --grain-size: 3px 3px;                                                   /* @kind other */
+  --vignette: radial-gradient(120% 90% at 50% 0%, transparent 55%, rgba(0,0,0,0.55) 100%); /* @kind other */
+  --board-wash: linear-gradient(180deg, #1a1815 0%, #121110 42%, #0d0c0b 100%); /* @kind other */
+}

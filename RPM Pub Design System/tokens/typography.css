@@ -1,0 +1,37 @@
+/* RPM Pub — Typography tokens */
+:root {
+  --font-display: "Anton", "Arial Narrow", sans-serif;   /* section headers */
+  --font-heading: "Oswald", "Arial Narrow", sans-serif;  /* item titles, labels */
+  --font-body: "Zilla Slab", Georgia, serif;             /* descriptions, copy */
+  --font-accent: "Bungee", "Arial Black", sans-serif;    /* signage flourish */
+
+  /* Weights */
+  --fw-body: 400;        /* @kind other */
+  --fw-body-med: 500;    /* @kind other */
+  --fw-heading: 600;     /* @kind other */
+  --fw-heading-bold: 700;/* @kind other */
+
+  /* Type scale — condensed impact display, comfortable slab body.
+     Tuned for menu boards; smallest body is 15px. */
+  --fs-micro: 0.75rem;    /* 12px — meta labels only (never body) */
+  --fs-caption: 0.875rem; /* 14px */
+  --fs-body-sm: 0.9375rem;/* 15px */
+  --fs-body: 1.0625rem;   /* 17px — default description size */
+  --fs-body-lg: 1.25rem;  /* 20px */
+  --fs-title: 1.375rem;   /* 22px — menu item title */
+  --fs-h4: 1.75rem;       /* 28px */
+  --fs-h3: 2.25rem;       /* 36px */
+  --fs-h2: 3rem;          /* 48px — section header */
+  --fs-h1: 4.25rem;       /* 68px — board / hero */
+  --fs-display: 6rem;     /* 96px — TV board hero */
+
+  /* Line heights */
+  --lh-tight: 1.02; /* @kind other */
+  --lh-snug: 1.15; /* @kind other */
+  --lh-body: 1.45; /* @kind other */
+
+  /* Letter spacing */
+  --ls-display: 0.01em; /* @kind other */
+  --ls-caps: 0.06em;    /* Oswald caps labels */
+  --ls-wide: 0.14em;    /* eyebrow / kicker */
+}
