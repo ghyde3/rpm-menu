@@ -10,6 +10,9 @@ import {
   setItemAvailability,
   setFeaturedSlot,
   clearFeaturedSlot,
+  createItemPriceVariant,
+  updateItemPriceVariant,
+  deleteItemPriceVariant,
 } from "./items";
 import type { ServiceCaller } from "./base";
 
@@ -66,6 +69,67 @@ describe("items service", () => {
     await expect(
       createItem(db, noRole, { name: "Nope", categoryId: category.id }),
     ).rejects.toThrow();
+  });
+
+  describe("role restrictions (PRD §2: staff cannot change prices or delete items)", () => {
+    const staff: ServiceCaller = {
+      actor: { type: "user", id: "00000000-0000-0000-0000-0000000000cc" },
+      surface: "admin_ui",
+      role: "staff",
+      isActive: true,
+    };
+
+    it("lets staff create a priceless item but not one with a price", async () => {
+      const category = await seedCategory(db);
+      const created = await createItem(db, staff, { name: "Mystery Snack", categoryId: category.id });
+      expect(created.priceCents).toBeNull();
+
+      await expect(
+        createItem(db, staff, { name: "Priced Snack", categoryId: category.id, priceCents: 500 }),
+      ).rejects.toThrow();
+    });
+
+    it("lets staff edit an item's description but not its price", async () => {
+      const category = await seedCategory(db);
+      const item = await createItem(db, owner, { name: "Wings", categoryId: category.id, priceCents: 900 });
+
+      const updated = await updateItem(db, staff, item.id, { description: "Extra saucy" });
+      expect(updated.description).toBe("Extra saucy");
+
+      await expect(updateItem(db, staff, item.id, { priceCents: 1000 })).rejects.toThrow();
+      await expect(updateItem(db, staff, item.id, { pricingType: "ask_server" })).rejects.toThrow();
+    });
+
+    it("lets staff toggle availability (the one-tap 86 action)", async () => {
+      const category = await seedCategory(db);
+      const item = await createItem(db, owner, { name: "Fries", categoryId: category.id });
+      const toggled = await setItemAvailability(db, staff, item.id, { isAvailable: false });
+      expect(toggled.isAvailable).toBe(false);
+    });
+
+    it("refuses a staff delete", async () => {
+      const category = await seedCategory(db);
+      const item = await createItem(db, owner, { name: "Burger", categoryId: category.id });
+      await expect(deleteItem(db, staff, item.id)).rejects.toThrow();
+    });
+
+    it("refuses staff price-variant CRUD", async () => {
+      const category = await seedCategory(db);
+      const item = await createItem(db, owner, { name: "Reuben", categoryId: category.id });
+      await expect(
+        createItemPriceVariant(db, staff, { itemId: item.id, label: "Half", priceCents: 800 }),
+      ).rejects.toThrow();
+
+      const variant = await createItemPriceVariant(db, owner, {
+        itemId: item.id,
+        label: "Half",
+        priceCents: 800,
+      });
+      await expect(
+        updateItemPriceVariant(db, staff, variant.id, { priceCents: 850 }),
+      ).rejects.toThrow();
+      await expect(deleteItemPriceVariant(db, staff, variant.id)).rejects.toThrow();
+    });
   });
 
   describe("setFeaturedSlot", () => {

@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { tags, itemTags, type Tag } from "@/db/schema";
 import {
   registerRevertHandler,
-  requireStaffOrOwnerCaller,
+  requireOwnerCaller,
   withAudit,
   bumpAffectedScreens,
   reviveDates,
@@ -28,7 +28,7 @@ export async function getTag(db: DbClient, tagId: string): Promise<Tag> {
 }
 
 export async function createTag(db: DbClient, caller: ServiceCaller, rawInput: CreateTagInput): Promise<Tag> {
-  requireStaffOrOwnerCaller(caller);
+  requireOwnerCaller(caller); // §2/addendum: tag definitions (incl. visibility) are owner-managed
   const input = createTagSchema.parse(rawInput);
 
   return withAudit(
@@ -54,7 +54,7 @@ export async function updateTag(
   tagId: string,
   rawInput: UpdateTagInput,
 ): Promise<Tag> {
-  requireStaffOrOwnerCaller(caller);
+  requireOwnerCaller(caller); // §2/addendum: tag definitions (incl. visibility) are owner-managed
   const input = updateTagSchema.parse(rawInput);
   const before = await getTagOrThrow(db, tagId);
 
@@ -85,7 +85,7 @@ export async function updateTag(
  * that carried this tag is bumped so query-mode screens filtering on it
  * re-evaluate promptly. */
 export async function deleteTag(db: DbClient, caller: ServiceCaller, tagId: string): Promise<void> {
-  requireStaffOrOwnerCaller(caller);
+  requireOwnerCaller(caller); // §2/addendum: tag definitions (incl. visibility) are owner-managed
   const before = await getTagOrThrow(db, tagId);
   const taggedItemRows = await db.select({ itemId: itemTags.itemId }).from(itemTags).where(eq(itemTags.tagId, tagId));
 

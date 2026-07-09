@@ -12,6 +12,7 @@ import {
 import {
   registerRevertHandler,
   requireStaffOrOwnerCaller,
+  requireOwnerCaller,
   withAudit,
   bumpAffectedScreens,
   reviveDates,
@@ -42,7 +43,7 @@ async function getItemOrThrow(db: DbClient, itemId: string): Promise<Item> {
   return item;
 }
 
-async function getItemTagIds(db: DbClient, itemId: string): Promise<string[]> {
+export async function getItemTagIds(db: DbClient, itemId: string): Promise<string[]> {
   const rows = await db.select({ tagId: itemTags.tagId }).from(itemTags).where(eq(itemTags.itemId, itemId));
   return rows.map((r) => r.tagId);
 }
@@ -55,12 +56,26 @@ export async function getItem(db: DbClient, itemId: string): Promise<Item> {
   return getItemOrThrow(db, itemId);
 }
 
+/** A price-bearing field only an owner may set (PRD §2: staff "cannot change
+ * prices"). Checked against the *raw* (pre-Zod-default) input — the parsed
+ * schema always fills `pricingType` via `.default("fixed")`, which would
+ * otherwise make this look "touched" on every call. */
+function touchesPriceFields(rawInput: { priceCents?: number | null; pricingType?: string }): boolean {
+  return rawInput.priceCents !== undefined || rawInput.pricingType !== undefined;
+}
+
 export async function createItem(
   db: DbClient,
   caller: ServiceCaller,
   rawInput: CreateItemInput,
 ): Promise<Item> {
-  requireStaffOrOwnerCaller(caller);
+  // §2: staff cannot set a price at creation time either — only owners may
+  // put a dollar figure (or pricing classification) on an item.
+  if (touchesPriceFields(rawInput)) {
+    requireOwnerCaller(caller);
+  } else {
+    requireStaffOrOwnerCaller(caller);
+  }
   const input = createItemSchema.parse(rawInput);
 
   const created = await withAudit(
@@ -89,7 +104,14 @@ export async function updateItem(
   itemId: string,
   rawInput: UpdateItemInput,
 ): Promise<Item> {
-  requireStaffOrOwnerCaller(caller);
+  // §2: staff can edit descriptions/name/category/tags/etc. but not prices —
+  // only escalate to owner-only when the update actually touches a price
+  // field, so the common staff edits (fix a typo, re-sort) still work.
+  if (touchesPriceFields(rawInput)) {
+    requireOwnerCaller(caller);
+  } else {
+    requireStaffOrOwnerCaller(caller);
+  }
   const input = updateItemSchema.parse(rawInput);
   const before = await getItemOrThrow(db, itemId);
   const beforeTagIds = await getItemTagIds(db, itemId);
@@ -120,7 +142,8 @@ export async function updateItem(
 }
 
 export async function deleteItem(db: DbClient, caller: ServiceCaller, itemId: string): Promise<void> {
-  requireStaffOrOwnerCaller(caller);
+  // §2: staff explicitly "cannot ... delete items" — owner only.
+  requireOwnerCaller(caller);
   const before = await getItemOrThrow(db, itemId);
   const tagIds = await getItemTagIds(db, itemId);
 
@@ -321,7 +344,8 @@ export async function createItemPriceVariant(
   caller: ServiceCaller,
   rawInput: CreateItemPriceVariantInput,
 ): Promise<ItemPriceVariant> {
-  requireStaffOrOwnerCaller(caller);
+  // §2: a price variant is nothing but a price — owner only.
+  requireOwnerCaller(caller);
   const input = createItemPriceVariantSchema.parse(rawInput);
   await getItemOrThrow(db, input.itemId);
 
@@ -336,7 +360,7 @@ export async function updateItemPriceVariant(
   variantId: string,
   rawInput: UpdateItemPriceVariantInput,
 ): Promise<ItemPriceVariant> {
-  requireStaffOrOwnerCaller(caller);
+  requireOwnerCaller(caller);
   const input = updateItemPriceVariantSchema.parse(rawInput);
   const [before] = await db.select().from(itemPriceVariants).where(eq(itemPriceVariants.id, variantId));
   if (!before) throw new NotFoundError("item_price_variant", variantId);
@@ -355,7 +379,7 @@ export async function deleteItemPriceVariant(
   caller: ServiceCaller,
   variantId: string,
 ): Promise<void> {
-  requireStaffOrOwnerCaller(caller);
+  requireOwnerCaller(caller);
   const [before] = await db.select().from(itemPriceVariants).where(eq(itemPriceVariants.id, variantId));
   if (!before) throw new NotFoundError("item_price_variant", variantId);
 

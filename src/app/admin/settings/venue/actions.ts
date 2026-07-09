@@ -1,0 +1,68 @@
+"use server";
+
+// Thin server-action wrappers over src/lib/service/settings/venue.ts — no
+// logic lives here beyond building a ServiceCaller from the current session
+// and shaping the result for the client component (per docs/architecture.md:
+// "route handlers ... are thin wrappers around these [service functions] —
+// never parallel logic").
+import { revalidatePath } from "next/cache";
+import { db } from "@/db";
+import { getCurrentSession } from "@/lib/auth/session";
+import { requireOwnerCaller, type ServiceCaller } from "@/lib/service/base";
+import {
+  getVenueSettings,
+  previewTimezoneChange,
+  updateVenueSettings,
+  type TimezoneChangeImpact,
+  type UpdateVenueSettingsInput,
+  type VenueSettingsRow,
+} from "@/lib/service/settings/venue";
+
+export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
+
+async function callerFromSession(): Promise<ServiceCaller> {
+  const session = await getCurrentSession();
+  return {
+    actor: { type: "user", id: session?.user.id ?? null },
+    surface: "admin_ui",
+    role: session?.user.role,
+    isActive: session?.user.isActive,
+  };
+}
+
+async function toResult<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
+  try {
+    return { ok: true, data: await fn() };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unexpected error" };
+  }
+}
+
+export async function getVenueSettingsAction(): Promise<ActionResult<VenueSettingsRow>> {
+  return toResult(async () => {
+    const caller = await callerFromSession();
+    requireOwnerCaller(caller);
+    return getVenueSettings(db);
+  });
+}
+
+export async function previewTimezoneChangeAction(
+  timezone: string,
+): Promise<ActionResult<TimezoneChangeImpact>> {
+  return toResult(async () => {
+    const caller = await callerFromSession();
+    requireOwnerCaller(caller);
+    return previewTimezoneChange(db, timezone);
+  });
+}
+
+export async function updateVenueSettingsAction(
+  input: UpdateVenueSettingsInput,
+): Promise<ActionResult<VenueSettingsRow>> {
+  const caller = await callerFromSession();
+  const result = await toResult(() => updateVenueSettings(db, caller, input));
+  if (result.ok) {
+    revalidatePath("/admin/settings/venue");
+  }
+  return result;
+}

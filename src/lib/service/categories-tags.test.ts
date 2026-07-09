@@ -49,4 +49,18 @@ describe("categories + tags services", () => {
 
     await deleteTag(db, owner, tag.id);
   });
+
+  it("refuses staff from creating, editing, or deleting a tag (visibility is owner-managed)", async () => {
+    const staff: ServiceCaller = {
+      actor: { type: "user", id: "00000000-0000-0000-0000-0000000000ee" },
+      surface: "admin_ui",
+      role: "staff",
+      isActive: true,
+    };
+    await expect(createTag(db, staff, { name: "new", visibility: "public" })).rejects.toThrow();
+
+    const tag = await createTag(db, owner, { name: "special", visibility: "private" });
+    await expect(updateTag(db, staff, tag.id, { visibility: "public" })).rejects.toThrow();
+    await expect(deleteTag(db, staff, tag.id)).rejects.toThrow();
+  });
 });
