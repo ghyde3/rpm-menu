@@ -5,8 +5,11 @@ Menu CMS for RPM Pub. Remote: https://github.com/ghyde3/rpm-menu
 ## Key documents
 
 - `menu-cms-prd.md` — product requirements (source of truth for scope)
-- `rpm-menu-extracted.md` — the actual menu content to be managed
+- `rpm-menu-extracted.md` — the actual food menu content to be managed
+- `rpm-drinks-extracted.md` — the actual drink menu content (bottles, cans, draft with ABV/style; no prices yet)
 - `RPM Pub Design System/` — design system: tokens, components, cards, UI kits. Single source of truth for all UI. Read its `readme.md` and `SKILL.md` before building UI.
+
+**Data rule:** the design system is design-only. `RPM Pub Design System/ui_kits/menu-data.js` is a demo fixture with fabricated items and prices — NEVER use it as a data source or import seed. Menu content truth is `rpm-menu-extracted.md` + `rpm-drinks-extracted.md` only.
 
 ## Working model: orchestrator + agents
 
