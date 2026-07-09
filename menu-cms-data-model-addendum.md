@@ -105,9 +105,11 @@ Admin UX: inherited groups render as read-only chips with an "exclude for this i
 - **Dedicated happy-hour/price-tier schedule tables** (`happy_hour_windows`, `price_tier_schedules`) — duplicates `display_schedules`; two "when is X active" mechanisms confuse a 2-admin venue.
 - **Per-attachment min/max/label overrides + scoped options** (full-normalization extras) — largest admin-UI surface of the panel for needs the real menu doesn't demonstrate; option-level exclusions cover the actual case.
 
-## 5. Open items (blocking data entry, not schema)
+## 5. Content decisions (resolved by owner, 2026-07-09)
 
-1. **Drink prices** — none provided for bottles/cans/draft/Drink of the Week. Import as pricing_type=tbd; owner to supply.
-2. **Ambiguous substitution prices** — salmon sub $10.63, shrimp tacos $14.55, chicken Caesar $15.59: replacement or upcharge? Resolve via the admin disambiguation flow (or owner answers now and we import clean).
-3. **Bulk-ops scope decision** — Phase 1 bulk price-adjust reaches `items.price_cents` only; it does NOT touch modifier option deltas or happy-hour variants. This is a documented, owner-communicated gap ("raise all beer prices" won't move add-on prices).
-4. Content cleanups from review: split "Southwestern or Philly Eggrolls"?, Sweet/Unsweet Tea one item or two?, "Mich/Mic Ultra" normalization, "japs" → jalapeños, glare-obscured price verification.
+1. **Drink prices** — standard bar pricing set as defaults (tiers documented in `rpm-drinks-extracted.md`); import as `pricing_type=fixed`, owner tunes per item in the CMS.
+2. **Substitution prices are upcharges** — salmon sub $10.63, shrimp tacos $14.55, chicken Caesar $15.59 all import as `pricing_mode='delta'`. No ambiguous rows needed for these three; the disambiguation flow remains for future entries.
+3. **Item splits** — "Southwestern or Philly Eggrolls" imports as two items (Southwestern Eggrolls, Philly Eggrolls) at the listed price each; "Sweet & Unsweet Tea" imports as two items (Sweet Tea, Unsweet Tea). "Mic Ultra" normalized to "Mich Ultra".
+4. **Bulk-ops scope** — Phase 1 bulk price-adjust reaches `items.price_cents` only; it does NOT touch modifier option deltas or happy-hour variants. Documented, owner-communicated gap ("raise all beer prices" won't move add-on prices).
+
+Remaining cleanups at import time: "japs" → jalapeños in descriptions; glare-obscured food prices flagged for eventual verification.
