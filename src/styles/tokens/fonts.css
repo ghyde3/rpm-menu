@@ -1,0 +1,11 @@
+/* RPM Pub — Webfonts
+ * SUBSTITUTION NOTE: The printed RPM menu uses hand-lettered / brushed tattoo
+ * display lettering and an old-timey slab body. No original font files were
+ * provided, so these are the closest Google Fonts matches. Swap for licensed
+ * originals if/when available.
+ *   Anton      -> heavy condensed impact (garage/industrial section headers)
+ *   Oswald     -> condensed grotesque (item titles, labels, prices)
+ *   Zilla Slab -> slab serif (descriptions, running copy)
+ *   Bungee     -> blocky signage accent (rare — wordmark / TV flourishes)
+ */
+@import url("https://fonts.googleapis.com/css2?family=Anton&family=Oswald:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,600;1,700&family=Zilla+Slab:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,600&family=Bungee&display=swap");

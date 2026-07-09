@@ -1,0 +1,57 @@
+/* RPM Pub — Color tokens
+ * Palette pulled from the chalkboard menu board: near-black distressed wood,
+ * hot-rod red + flame orange lettering, warm cream body text, beer-amber and
+ * a toxic kustom-kulture green as sparing accents. Warm, dim, dive-bar.
+ */
+:root {
+  /* ---- Base / raw ---- */
+  --rpm-ink: #121110;          /* board black */
+  --rpm-charcoal: #1c1a17;     /* raised surface */
+  --rpm-charcoal-2: #262320;   /* hover / inset surface */
+  --rpm-soot: #302c28;         /* hairline borders on dark */
+  --rpm-cream: #f2ead9;        /* primary text on dark */
+  --rpm-bone: #cabfa9;         /* secondary text */
+  --rpm-steel: #8f867a;        /* muted / captions */
+  --rpm-steel-dim: #5f574d;    /* disabled / faint */
+
+  --rpm-red: #d63a2c;          /* hot-rod red — headers, primary action */
+  --rpm-red-deep: #a52618;     /* pressed red */
+  --rpm-orange: #e8632a;       /* flame orange — item titles */
+  --rpm-orange-lt: #f2894c;    /* orange hover */
+  --rpm-amber: #e5b833;        /* beer amber — prices, highlights */
+  --rpm-toxic: #a8c81e;        /* kustom green — rare accent / "new" */
+
+  --rpm-white: #ffffff;
+  --rpm-black: #000000;
+
+  /* ---- Semantic ---- */
+  --surface-base: var(--rpm-ink);
+  --surface-raised: var(--rpm-charcoal);
+  --surface-inset: var(--rpm-charcoal-2);
+  --surface-hover: var(--rpm-charcoal-2);
+
+  --text-primary: var(--rpm-cream);
+  --text-secondary: var(--rpm-bone);
+  --text-muted: var(--rpm-steel);
+  --text-faint: var(--rpm-steel-dim);
+  --text-on-accent: #1a0e07;
+
+  --accent-primary: var(--rpm-red);
+  --accent-primary-press: var(--rpm-red-deep);
+  --accent-secondary: var(--rpm-orange);
+  --accent-secondary-hover: var(--rpm-orange-lt);
+  --accent-price: var(--rpm-amber);
+  --accent-new: var(--rpm-toxic);
+
+  --border-hairline: var(--rpm-soot);
+  --border-strong: #4a443d;
+  --border-accent: var(--rpm-red);
+
+  /* leader-dot color for menu rows */
+  --leader-dots: #4a443d;
+
+  /* status */
+  --status-live: var(--rpm-toxic);
+  --status-off: var(--rpm-steel-dim);
+  --status-warn: var(--rpm-amber);
+}
