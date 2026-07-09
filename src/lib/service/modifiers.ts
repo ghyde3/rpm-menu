@@ -1,10 +1,12 @@
 // Modifier groups/options/attachments/exclusions CRUD (addendum §1).
-import { eq } from "drizzle-orm";
+import { eq, inArray, or } from "drizzle-orm";
 import {
   modifierGroups,
   modifierOptions,
   modifierGroupAttachments,
   itemModifierOptionExclusions,
+  items,
+  categories,
   type ModifierGroup,
   type ModifierOption,
   type ModifierGroupAttachment,
@@ -20,6 +22,7 @@ import {
   type AffectedScope,
 } from "./base";
 import { NotFoundError, ConflictError } from "./base/errors";
+import { resolveOptionPrice, type ResolvedOptionPrice } from "@/lib/pricing";
 import {
   createModifierGroupSchema,
   updateModifierGroupSchema,
@@ -70,6 +73,10 @@ export async function listModifierGroups(db: DbClient): Promise<ModifierGroup[]>
 
 export async function getModifierGroup(db: DbClient, groupId: string): Promise<ModifierGroup> {
   return getModifierGroupOrThrow(db, groupId);
+}
+
+export async function getModifierOption(db: DbClient, optionId: string): Promise<ModifierOption> {
+  return getModifierOptionOrThrow(db, optionId);
 }
 
 export async function createModifierGroup(
@@ -425,6 +432,276 @@ export async function setItemModifierOptionExclusions(
 
   await bumpAffectedScreens(db, { itemIds: [itemId] });
   return input.optionIds;
+}
+
+// --- Composed read views for the admin UI ---------------------------------
+//
+// Everything below is read-only (no audit/bump — nothing is mutated) and
+// exists to compose modifier_groups/modifier_options/modifier_group_
+// attachments/item_modifier_option_exclusions with the `items`/`categories`
+// tables so the admin pages don't reimplement this joining logic client-side
+// or in route handlers. Reading foundation-owned tables here is the same
+// pattern `bumpAffectedScreens` already uses cross-domain.
+
+export interface ModifierGroupSummary extends ModifierGroup {
+  optionCount: number;
+  attachmentCount: number;
+}
+
+/** Library listing for /admin/modifiers — every group plus cheap counts, no
+ * N+1 (batched by groupId across the whole set). */
+export async function listModifierGroupsWithSummary(db: DbClient): Promise<ModifierGroupSummary[]> {
+  const groups = await db.select().from(modifierGroups).orderBy(modifierGroups.sortOrder);
+  if (groups.length === 0) return [];
+  const groupIds = groups.map((g) => g.id);
+
+  const [optionRows, attachmentRows] = await Promise.all([
+    db.select({ groupId: modifierOptions.groupId }).from(modifierOptions).where(inArray(modifierOptions.groupId, groupIds)),
+    db
+      .select({ groupId: modifierGroupAttachments.groupId })
+      .from(modifierGroupAttachments)
+      .where(inArray(modifierGroupAttachments.groupId, groupIds)),
+  ]);
+
+  const optionCounts = new Map<string, number>();
+  for (const row of optionRows) optionCounts.set(row.groupId, (optionCounts.get(row.groupId) ?? 0) + 1);
+  const attachmentCounts = new Map<string, number>();
+  for (const row of attachmentRows) attachmentCounts.set(row.groupId, (attachmentCounts.get(row.groupId) ?? 0) + 1);
+
+  return groups.map((group) => ({
+    ...group,
+    optionCount: optionCounts.get(group.id) ?? 0,
+    attachmentCount: attachmentCounts.get(group.id) ?? 0,
+  }));
+}
+
+export interface ModifierGroupAttachmentDetail extends ModifierGroupAttachment {
+  itemName: string | null;
+  categoryName: string | null;
+}
+
+export interface ModifierGroupDetail {
+  group: ModifierGroup;
+  options: ModifierOption[];
+  attachments: ModifierGroupAttachmentDetail[];
+}
+
+/** Everything the group edit page (/admin/modifiers/[groupId]) needs in one
+ * call: the group row, its options (sorted), and its attachments resolved to
+ * human-readable item/category names. */
+export async function getModifierGroupDetail(db: DbClient, groupId: string): Promise<ModifierGroupDetail> {
+  const group = await getModifierGroupOrThrow(db, groupId);
+
+  const [options, attachments] = await Promise.all([
+    db.select().from(modifierOptions).where(eq(modifierOptions.groupId, groupId)).orderBy(modifierOptions.sortOrder),
+    db
+      .select()
+      .from(modifierGroupAttachments)
+      .where(eq(modifierGroupAttachments.groupId, groupId))
+      .orderBy(modifierGroupAttachments.sortOrder),
+  ]);
+
+  const itemIds = attachments.map((a) => a.itemId).filter((v): v is string => v !== null);
+  const categoryIds = attachments.map((a) => a.categoryId).filter((v): v is string => v !== null);
+
+  const [itemRows, categoryRows] = await Promise.all([
+    itemIds.length > 0
+      ? db.select({ id: items.id, name: items.name }).from(items).where(inArray(items.id, itemIds))
+      : Promise.resolve([] as { id: string; name: string }[]),
+    categoryIds.length > 0
+      ? db.select({ id: categories.id, name: categories.name }).from(categories).where(inArray(categories.id, categoryIds))
+      : Promise.resolve([] as { id: string; name: string }[]),
+  ]);
+  const itemNames = new Map(itemRows.map((r) => [r.id, r.name]));
+  const categoryNames = new Map(categoryRows.map((r) => [r.id, r.name]));
+
+  return {
+    group,
+    options,
+    attachments: attachments.map((a) => ({
+      ...a,
+      itemName: a.itemId ? (itemNames.get(a.itemId) ?? null) : null,
+      categoryName: a.categoryId ? (categoryNames.get(a.categoryId) ?? null) : null,
+    })),
+  };
+}
+
+export interface CategoryAttachmentPreview {
+  count: number;
+  sampleItems: { id: string; name: string }[];
+}
+
+/** The addendum's "applies to N items" live preview — computed from the
+ * category's current membership regardless of whether the attachment has
+ * been saved yet, so the admin UI can show this before the save button is
+ * even pressed. */
+export async function previewCategoryAttachment(db: DbClient, categoryId: string): Promise<CategoryAttachmentPreview> {
+  const rows = await db
+    .select({ id: items.id, name: items.name })
+    .from(items)
+    .where(eq(items.categoryId, categoryId))
+    .orderBy(items.sortOrder, items.name);
+  return { count: rows.length, sampleItems: rows.slice(0, 5) };
+}
+
+export interface ItemModifierOptionView {
+  option: ModifierOption;
+  /** True only for options on an inherited (category-sourced) group that
+   * this item has explicitly excluded — addendum §1's per-item exclusion. */
+  excluded: boolean;
+  resolvedPrice: ResolvedOptionPrice;
+}
+
+export interface ItemModifierGroupView {
+  group: ModifierGroup;
+  /** "item" = attached directly to this item; "category" = inherited via
+   * the item's category. */
+  source: "item" | "category";
+  attachmentId: string;
+  options: ItemModifierOptionView[];
+}
+
+export interface ItemModifierView {
+  itemId: string;
+  categoryId: string;
+  groups: ItemModifierGroupView[];
+}
+
+/** Everything /admin/items/[id]/modifiers needs: every group that applies to
+ * this item (attached directly, or inherited from its category), each
+ * group's options resolved through the pricing fail-safe, and which
+ * inherited options this item has excluded. */
+export async function getItemModifierView(db: DbClient, itemId: string): Promise<ItemModifierView> {
+  const [item] = await db.select({ id: items.id, categoryId: items.categoryId }).from(items).where(eq(items.id, itemId));
+  if (!item) throw new NotFoundError("item", itemId);
+
+  const attachments = await db
+    .select()
+    .from(modifierGroupAttachments)
+    .where(or(eq(modifierGroupAttachments.itemId, itemId), eq(modifierGroupAttachments.categoryId, item.categoryId)))
+    .orderBy(modifierGroupAttachments.sortOrder);
+
+  if (attachments.length === 0) {
+    return { itemId: item.id, categoryId: item.categoryId, groups: [] };
+  }
+
+  const groupIds = [...new Set(attachments.map((a) => a.groupId))];
+  const [groups, options, exclusions] = await Promise.all([
+    db.select().from(modifierGroups).where(inArray(modifierGroups.id, groupIds)),
+    db
+      .select()
+      .from(modifierOptions)
+      .where(inArray(modifierOptions.groupId, groupIds))
+      .orderBy(modifierOptions.sortOrder),
+    db
+      .select({ optionId: itemModifierOptionExclusions.optionId })
+      .from(itemModifierOptionExclusions)
+      .where(eq(itemModifierOptionExclusions.itemId, itemId)),
+  ]);
+
+  const groupsById = new Map(groups.map((g) => [g.id, g]));
+  const optionsByGroup = new Map<string, ModifierOption[]>();
+  for (const option of options) {
+    const list = optionsByGroup.get(option.groupId) ?? [];
+    list.push(option);
+    optionsByGroup.set(option.groupId, list);
+  }
+  const excludedIds = new Set(exclusions.map((e) => e.optionId));
+
+  const groupViews: ItemModifierGroupView[] = [];
+  for (const attachment of attachments) {
+    const group = groupsById.get(attachment.groupId);
+    if (!group) continue;
+    const source: "item" | "category" = attachment.itemId === itemId ? "item" : "category";
+    const groupOptions = optionsByGroup.get(group.id) ?? [];
+    groupViews.push({
+      group,
+      source,
+      attachmentId: attachment.id,
+      options: groupOptions.map((option) => ({
+        option,
+        excluded: source === "category" && excludedIds.has(option.id),
+        resolvedPrice: resolveOptionPrice({
+          pricingMode: option.pricingMode,
+          priceDeltaCents: option.priceDeltaCents,
+          replacementPriceCents: option.replacementPriceCents,
+        }),
+      })),
+    });
+  }
+
+  return { itemId: item.id, categoryId: item.categoryId, groups: groupViews };
+}
+
+export interface PricingReviewEntry {
+  option: ModifierOption;
+  group: ModifierGroup;
+  /** Every item this ambiguous option could currently render on — direct
+   * item attachments, plus every item in an attached category. Empty when
+   * the option's group isn't attached anywhere yet. */
+  affectedItems: { id: string; name: string }[];
+}
+
+/** The addendum's "N substitution options need pricing confirmed" dashboard
+ * nag (addendum §1's fail-safe rule) — every `pricing_mode = 'ambiguous'`
+ * option, plus enough context to link straight into the affected item's
+ * Modifiers section. */
+export async function listOptionsNeedingPricingReview(db: DbClient): Promise<PricingReviewEntry[]> {
+  const ambiguousOptions = await db
+    .select()
+    .from(modifierOptions)
+    .where(eq(modifierOptions.pricingMode, "ambiguous"))
+    .orderBy(modifierOptions.sortOrder);
+  if (ambiguousOptions.length === 0) return [];
+
+  const groupIds = [...new Set(ambiguousOptions.map((o) => o.groupId))];
+  const [groups, attachments] = await Promise.all([
+    db.select().from(modifierGroups).where(inArray(modifierGroups.id, groupIds)),
+    db.select().from(modifierGroupAttachments).where(inArray(modifierGroupAttachments.groupId, groupIds)),
+  ]);
+  const groupsById = new Map(groups.map((g) => [g.id, g]));
+
+  const directItemIds = attachments.map((a) => a.itemId).filter((v): v is string => v !== null);
+  const categoryIds = attachments.map((a) => a.categoryId).filter((v): v is string => v !== null);
+
+  const [directItemRows, categoryItemRows] = await Promise.all([
+    directItemIds.length > 0
+      ? db
+          .select({ id: items.id, name: items.name })
+          .from(items)
+          .where(inArray(items.id, directItemIds))
+      : Promise.resolve([] as { id: string; name: string }[]),
+    categoryIds.length > 0
+      ? db
+          .select({ id: items.id, name: items.name, categoryId: items.categoryId })
+          .from(items)
+          .where(inArray(items.categoryId, categoryIds))
+      : Promise.resolve([] as { id: string; name: string; categoryId: string }[]),
+  ]);
+  const directItemNames = new Map(directItemRows.map((r) => [r.id, r.name]));
+
+  const affectedByGroup = new Map<string, Map<string, { id: string; name: string }>>();
+  for (const attachment of attachments) {
+    const bucket = affectedByGroup.get(attachment.groupId) ?? new Map<string, { id: string; name: string }>();
+    if (attachment.itemId) {
+      const name = directItemNames.get(attachment.itemId);
+      if (name) bucket.set(attachment.itemId, { id: attachment.itemId, name });
+    } else if (attachment.categoryId) {
+      for (const row of categoryItemRows) {
+        if (row.categoryId === attachment.categoryId) bucket.set(row.id, { id: row.id, name: row.name });
+      }
+    }
+    affectedByGroup.set(attachment.groupId, bucket);
+  }
+
+  const entries: PricingReviewEntry[] = [];
+  for (const option of ambiguousOptions) {
+    const group = groupsById.get(option.groupId);
+    if (!group) continue;
+    const bucket = affectedByGroup.get(option.groupId);
+    entries.push({ option, group, affectedItems: bucket ? Array.from(bucket.values()) : [] });
+  }
+  return entries;
 }
 
 // --- Revert registration ------------------------------------------------

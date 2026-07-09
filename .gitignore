@@ -18,3 +18,6 @@ npm-debug.log*
 
 # local uploaded media (dev storage driver)
 .uploads/
+
+# gstack tooling local session state (contains local tokens, logs)
+.gstack/
