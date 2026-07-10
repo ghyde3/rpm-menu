@@ -9,6 +9,7 @@ import {
   createItemPriceVariant,
   setItemAvailability,
   setFeaturedSlot,
+  archiveItem,
 } from "@/lib/service/items";
 import { updateMenuBehavior } from "@/lib/service/settings/menu-behavior";
 import { updateBranding } from "@/lib/service/settings/branding";
@@ -129,6 +130,20 @@ describe("public-query: getPublicMenu", () => {
     const menu = await getPublicMenu(db);
     const rendered = menu.categories.find((c) => c.name === "Wings")!.items.find((i) => i.id === item.id)!;
     expect(rendered.isAvailable).toBe(false);
+  });
+
+  it("excludes archived items from the public menu regardless of availability or treatment", async () => {
+    const category = await createCategory(db, owner, { name: "Retired", type: "food" });
+    const kept = await createItem(db, owner, { name: "Still Served", priceCents: 900, categoryId: category.id });
+    const archived = await createItem(db, owner, { name: "Discontinued Nachos", priceCents: 1100, categoryId: category.id });
+    // Archived item stays available — proving archive, not availability, is
+    // what drops it from the menu.
+    await archiveItem(db, owner, archived.id);
+
+    const menu = await getPublicMenu(db);
+    const retired = menu.categories.find((c) => c.name === "Retired")!;
+    expect(retired.items.some((i) => i.id === kept.id)).toBe(true);
+    expect(retired.items.some((i) => i.id === archived.id)).toBe(false);
   });
 
   it("hides unavailable items entirely when menu behavior is set to 'hide'", async () => {

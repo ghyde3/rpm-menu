@@ -15,6 +15,7 @@ import { ItemForm } from "../ItemForm";
 import { TagAssignment } from "./TagAssignment";
 import { PriceVariantsEditor } from "./PriceVariantsEditor";
 import { DeleteItemButton } from "./DeleteItemButton";
+import { ArchiveItemButton } from "./ArchiveItemButton";
 import { FeaturedSlotPicker } from "./FeaturedSlotPicker";
 import { ItemGallery } from "./ItemGallery";
 import { KNOWN_FEATURED_SLOTS, type FeaturedSlotHolder } from "./featured-slots";
@@ -159,11 +160,40 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
           <FeaturedSlotPicker itemId={item.id} currentSlotKey={item.featuredSlotKey} holders={featuredSlotHolders} />
         </Card>
 
-        {isOwner && (
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <DeleteItemButton itemId={item.id} itemName={item.name} />
+        {/* Lifecycle: Archive (reversible) vs Delete (permanent). Archive is
+            staff-or-owner; permanent delete stays owner-only. */}
+        <Card>
+          <h2
+            style={{
+              fontFamily: "var(--font-heading)",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "var(--ls-caps)",
+              color: "var(--text-muted)",
+              marginBottom: "var(--sp-3)",
+            }}
+          >
+            {item.archivedAt ? "Archived" : "Remove from menu"}
+          </h2>
+          <p style={{ color: "var(--text-faint)", fontFamily: "var(--font-body)", fontSize: "0.8125rem", marginTop: 0 }}>
+            {item.archivedAt
+              ? "This item is archived — hidden from the menu, screens, and the default items list, but the record is kept. Restore it to bring it back exactly as it was."
+              : "Archive hides it from the menu but keeps the record — you can restore it later. Delete is permanent."}
+          </p>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "var(--sp-3)",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+            }}
+          >
+            <ArchiveItemButton itemId={item.id} isArchived={item.archivedAt !== null} />
+            {isOwner && !item.archivedAt && <DeleteItemButton itemId={item.id} itemName={item.name} />}
           </div>
-        )}
+        </Card>
       </div>
     </div>
   );

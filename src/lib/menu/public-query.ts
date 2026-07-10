@@ -23,7 +23,7 @@
 //     (`display_options.price_mode`), never the public menu.
 //   - All price math flows through src/lib/pricing.ts's `formatPrice` —
 //     this file never hand-formats cents.
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, isNull } from "drizzle-orm";
 import {
   categories,
   images,
@@ -254,7 +254,15 @@ export async function getPublicMenu(db: DbClient): Promise<PublicMenuData> {
   const showTrailingZeros = venue.currencyFormat?.showTrailingZeros?.web ?? true;
 
   const categoryRows = await db.select().from(categories).orderBy(categories.sortOrder, categories.name);
-  const itemRows = await db.select().from(items).orderBy(items.sortOrder, items.name);
+  // Archived items (archived_at IS NOT NULL) never appear on the public menu,
+  // regardless of the unavailable-treatment setting — archive is a hard
+  // removal from every customer surface, distinct from the 86'd/unavailable
+  // state which the badge treatment still shows.
+  const itemRows = await db
+    .select()
+    .from(items)
+    .where(isNull(items.archivedAt))
+    .orderBy(items.sortOrder, items.name);
   const itemIds = itemRows.map((i) => i.id);
 
   const itemTagRows = itemIds.length

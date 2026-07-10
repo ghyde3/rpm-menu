@@ -90,6 +90,12 @@ export const items = pgTable(
     attributes: jsonb("attributes").$type<ItemAttributes>().notNull().default({}),
     // addendum §2: one holder per featured slot (e.g. drink_of_the_week).
     featuredSlotKey: text("featured_slot_key"),
+    // Archive (reversible soft-remove, distinct from delete): null = active,
+    // timestamp = archived. Orthogonal to is_available — archiving never
+    // changes availability, so a restored item returns exactly as it was.
+    // Archived items are excluded from every customer/consumer surface
+    // (public menu, TV screens, REST/MCP list) and the default admin list.
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

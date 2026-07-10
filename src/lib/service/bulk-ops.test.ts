@@ -279,4 +279,45 @@ describe("bulk-ops service", () => {
       ).rejects.toThrow();
     });
   });
+
+  describe("bulk_archive", () => {
+    it("archives a selection (staff-allowed), skipping already-archived items, and restores them", async () => {
+      const category = await seedCategory(db, "Archivable");
+      const a = await seedItem(db, category.id, { name: "A" });
+      const b = await seedItem(db, category.id, { name: "B", archivedAt: new Date() });
+
+      // Preview archiving both — b is already archived, so it's skipped.
+      const preview = await previewBulkOperation(db, staff, {
+        changeType: "bulk_archive",
+        itemIds: [a.id, b.id],
+        archived: true,
+      });
+      expect(preview.diff.find((d) => d.itemId === a.id)!.skipped).toBe(false);
+      expect(preview.diff.find((d) => d.itemId === b.id)!.skipped).toBe(true);
+
+      const applied = await applyBulkOperation(db, staff, preview.pendingChangeId);
+      expect(applied.appliedCount).toBe(1);
+      expect(applied.skippedCount).toBe(1);
+
+      const [aRow] = await db.select().from(items).where(eq(items.id, a.id));
+      expect(aRow.archivedAt).toBeInstanceOf(Date);
+      expect(aRow.isAvailable).toBe(true); // archive left availability alone
+
+      // Now restore both.
+      const restorePreview = await previewBulkOperation(db, staff, {
+        changeType: "bulk_archive",
+        itemIds: [a.id, b.id],
+        archived: false,
+      });
+      const restoreApplied = await applyBulkOperation(db, staff, restorePreview.pendingChangeId);
+      expect(restoreApplied.appliedCount).toBe(2);
+
+      const restored = await db.select().from(items).where(eq(items.id, a.id));
+      expect(restored[0].archivedAt).toBeNull();
+
+      // Each applied change wrote an audit row under the grouped action.
+      const auditRows = await db.select().from(auditLog).where(eq(auditLog.entityId, a.id));
+      expect(auditRows.some((r) => r.action.startsWith("bulk_archive:"))).toBe(true);
+    });
+  });
 });

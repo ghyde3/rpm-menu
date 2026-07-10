@@ -17,6 +17,8 @@ import {
   createItem,
   updateItem,
   deleteItem,
+  archiveItem,
+  unarchiveItem,
   setItemAvailability,
   setItemTags,
   setFeaturedSlot,
@@ -83,6 +85,34 @@ export async function deleteItemAction(itemId: string): Promise<ActionResult> {
     const caller = await currentCaller();
     await deleteItem(db, caller, itemId);
     revalidateItems();
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
+}
+
+/** Archive (reversible soft-remove) — distinct from the permanent
+ * `deleteItemAction`. Removes the item from the menu/screens/default admin
+ * list but keeps the record, restorable via `unarchiveItemAction`. */
+export async function archiveItemAction(itemId: string): Promise<ActionResult> {
+  try {
+    const caller = await currentCaller();
+    await archiveItem(db, caller, itemId);
+    revalidateItems();
+    revalidatePath(`/admin/items/${itemId}`);
+    return { ok: true, data: undefined };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
+}
+
+/** Restore an archived item, bringing it back to every surface as it was. */
+export async function unarchiveItemAction(itemId: string): Promise<ActionResult> {
+  try {
+    const caller = await currentCaller();
+    await unarchiveItem(db, caller, itemId);
+    revalidateItems();
+    revalidatePath(`/admin/items/${itemId}`);
     return { ok: true, data: undefined };
   } catch (err) {
     return { ok: false, error: errorMessage(err) };

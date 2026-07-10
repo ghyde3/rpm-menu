@@ -26,13 +26,17 @@ export interface ItemGalleryProps {
   photos: PublicMenuGalleryPhoto[];
   /** Used for alt text + the lightbox dialog label. */
   itemName: string;
+  /** When false, an 86'd ("Currently Unavailable") scrim + label paints over
+   * the hero photo. Defaults true. The overlay is on the menu card only — the
+   * full-size lightbox image stays unobscured. */
+  available?: boolean;
 }
 
 /** Renders the always-present hero image plus, only when there's more than one
  * photo total, a small scrollable strip of the rest. Tapping any photo opens
  * the full-screen lightbox at that photo, from which the visitor can page
  * through the whole set. */
-export function ItemGallery({ heroUrl, heroDisplayUrl, photos, itemName }: ItemGalleryProps) {
+export function ItemGallery({ heroUrl, heroDisplayUrl, photos, itemName, available = true }: ItemGalleryProps) {
   // The hero has no separate thumb variant on hand here, so it reuses heroUrl
   // for the strip thumb; its lightbox photo prefers the display variant.
   const all = React.useMemo(
@@ -64,6 +68,37 @@ export function ItemGallery({ heroUrl, heroDisplayUrl, photos, itemName }: ItemG
         }}
       >
         <Image src={heroUrl} alt={itemName} fill sizes={`${HERO_SIZE}px`} style={{ objectFit: "cover" }} />
+        {!available && (
+          // Dark scrim + legible "Currently Unavailable" label over the 86'd
+          // item's photo. aria-hidden — the state is already conveyed textually
+          // in the row (MenuBoardItem) for assistive tech; this is the visual
+          // reinforcement on the card. Non-interactive so the photo still opens
+          // the lightbox (which shows the image unobscured).
+          <span
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              textAlign: "center",
+              padding: "var(--sp-1)",
+              background: "rgba(9,8,7,0.72)",
+              color: "var(--rpm-cream, var(--text-primary))",
+              fontFamily: "var(--font-heading)",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "var(--ls-caps)",
+              fontSize: "0.5625rem",
+              lineHeight: 1.15,
+            }}
+          >
+            Currently
+            <br />
+            Unavailable
+          </span>
+        )}
       </button>
 
       {all.length > 1 && (

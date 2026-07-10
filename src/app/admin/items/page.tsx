@@ -15,7 +15,13 @@ import { ItemsBrowser } from "./ItemsBrowser";
 
 export default async function ItemsPage() {
   const session = await getCurrentSession();
-  const [items, categories, tags] = await Promise.all([listItems(db), listCategories(db), listTags(db)]);
+  // Fetch active + archived in one shot ("all"); ItemsBrowser segments them
+  // client-side via its Active | Archived filter (default Active).
+  const [items, categories, tags] = await Promise.all([
+    listItems(db, { status: "all" }),
+    listCategories(db),
+    listTags(db),
+  ]);
   const isOwner = session?.user.role === "owner";
 
   return (

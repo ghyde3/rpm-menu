@@ -501,15 +501,24 @@ function MenuBoardItem({ item }: { item: PublicMenuItem }) {
   const note = [item.attributeLine, item.note].filter(Boolean).join(" · ") || undefined;
 
   const row = (
-    <MenuItem
-      name={item.name}
-      description={item.description ?? undefined}
-      price={item.price}
-      note={note}
-      tags={tags}
-      available={item.isAvailable}
-      wrap
-    />
+    <>
+      {/* 86'd items (unavailable, shown because the venue's unavailable-
+          treatment is "badge" — "hide" drops them from the query entirely)
+          get an explicit "Currently Unavailable" label. This is the clear,
+          always-present textual mark for items with no photo, and doubles as
+          the accessible announcement for items whose photo carries the scrim
+          overlay. */}
+      {!item.isAvailable && <UnavailableLabel />}
+      <MenuItem
+        name={item.name}
+        description={item.description ?? undefined}
+        price={item.price}
+        note={note}
+        tags={tags}
+        available={item.isAvailable}
+        wrap
+      />
+    </>
   );
 
   // Items with no photos render exactly as before this gallery feature
@@ -523,9 +532,39 @@ function MenuBoardItem({ item }: { item: PublicMenuItem }) {
         heroDisplayUrl={item.imageDisplayUrl}
         photos={item.gallery}
         itemName={item.name}
+        available={item.isAvailable}
       />
       <div style={{ flex: 1, minWidth: 0 }}>{row}</div>
     </div>
+  );
+}
+
+/** "Currently Unavailable" pill for an 86'd item on the public board. Uses the
+ * hot-rod red accent so it reads as a clear stop signal against the dark
+ * board, styled with tokens only. */
+function UnavailableLabel() {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "var(--sp-1)",
+        marginBottom: "var(--sp-2)",
+        fontFamily: "var(--font-heading)",
+        fontWeight: 700,
+        textTransform: "uppercase",
+        letterSpacing: "var(--ls-caps)",
+        fontSize: "var(--fs-caption)",
+        lineHeight: 1,
+        color: "#fff",
+        background: "var(--accent-primary)",
+        border: "var(--bw) solid var(--accent-primary)",
+        borderRadius: "var(--radius-sm)",
+        padding: "0.25rem var(--sp-2)",
+      }}
+    >
+      Currently Unavailable
+    </span>
   );
 }
 

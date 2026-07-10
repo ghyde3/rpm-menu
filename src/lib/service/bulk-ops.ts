@@ -38,6 +38,15 @@ export const bulkSetAvailabilityInputSchema = z.object({
   isAvailable: z.boolean(),
 });
 
+/** Archive / restore a selection in one bulk group. `archived: true`
+ * archives, `false` restores — mirrors `bulk_set_availability`'s boolean
+ * shape. Staff-or-owner (archive hides items, it doesn't touch prices). */
+export const bulkArchiveInputSchema = z.object({
+  changeType: z.literal("bulk_archive"),
+  itemIds: itemIdsSchema,
+  archived: z.boolean(),
+});
+
 export const bulkSetCategoryInputSchema = z.object({
   changeType: z.literal("bulk_set_category"),
   itemIds: itemIdsSchema,
@@ -72,6 +81,7 @@ export const bulkPriceAdjustInputSchema = z
 
 export const bulkOperationInputSchema = z.discriminatedUnion("changeType", [
   bulkSetAvailabilityInputSchema,
+  bulkArchiveInputSchema,
   bulkSetCategoryInputSchema,
   bulkTagInputSchema,
   bulkPriceAdjustInputSchema,
@@ -85,7 +95,7 @@ export type BulkChangeType = BulkOperationInput["changeType"];
  * owner-only floor. */
 export function requireRoleForChangeType(caller: ServiceCaller, changeType: BulkChangeType): void {
   // PRD §2: staff cannot change prices -- every other bulk op is a normal
-  // staff-or-owner catalog edit (availability/category/tag), matching the
+  // staff-or-owner catalog edit (availability/archive/category/tag), matching the
   // single-item equivalents in items.ts/tags.ts... except bulk_tag also
   // covers attaching *private* tags, which staff already manage per-item, so
   // staffOrOwner is correct there too (tag *definitions* are owner-only in
@@ -162,6 +172,21 @@ async function buildDiff(
           reason: noop ? "already in the target state" : undefined,
           before: { isAvailable: item.isAvailable },
           after: { isAvailable: input.isAvailable },
+        };
+      });
+
+    case "bulk_archive":
+      return input.itemIds.map((itemId) => {
+        const item = itemsById.get(itemId) as Item;
+        const currentlyArchived = item.archivedAt !== null;
+        const noop = currentlyArchived === input.archived;
+        return {
+          itemId,
+          name: item.name,
+          skipped: noop,
+          reason: noop ? (input.archived ? "already archived" : "already active") : undefined,
+          before: { archived: currentlyArchived },
+          after: { archived: input.archived },
         };
       });
 
@@ -291,6 +316,36 @@ export async function applyBulkOperation(
             const [after] = await tx
               .update(items)
               .set({ isAvailable: input.isAvailable, updatedAt: new Date() })
+              .where(eq(items.id, itemId))
+              .returning();
+            return { result: after, after };
+          },
+        );
+        appliedCount++;
+        touchedItemIds.push(itemId);
+        touchedCategoryIds.add(before.categoryId);
+      }
+    } else if (input.changeType === "bulk_archive") {
+      for (const itemId of input.itemIds) {
+        const [before] = await tx.select().from(items).where(eq(items.id, itemId));
+        if (!before || (before.archivedAt !== null) === input.archived) {
+          skippedCount++;
+          continue;
+        }
+        await withAudit(
+          tx,
+          {
+            actor: caller.actor,
+            surface: caller.surface,
+            action: groupAction,
+            entityType: "item",
+            entityId: itemId,
+            before,
+          },
+          async () => {
+            const [after] = await tx
+              .update(items)
+              .set({ archivedAt: input.archived ? new Date() : null, updatedAt: new Date() })
               .where(eq(items.id, itemId))
               .returning();
             return { result: after, after };

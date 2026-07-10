@@ -10,7 +10,7 @@
 // components (src/components/screens/templates/**) never need to reconsult
 // `ScreenDisplayOptions` — they just render whatever fields this module
 // already decided to include.
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import {
   screens,
   screenItems,
@@ -124,11 +124,14 @@ function buildPriceInfo(
 }
 
 async function loadManualModeItems(db: DbClient, screenId: string): Promise<Item[]> {
+  // Skip archived items even when a curated/manual screen still references
+  // one via screen_items — archive removes the item from every render
+  // surface, so a stale manual reference silently drops out (never errors).
   const rows = await db
     .select({ item: items })
     .from(screenItems)
     .innerJoin(items, eq(screenItems.itemId, items.id))
-    .where(eq(screenItems.screenId, screenId))
+    .where(and(eq(screenItems.screenId, screenId), isNull(items.archivedAt)))
     .orderBy(screenItems.sortOrder);
   return rows.map((r) => r.item);
 }
@@ -141,8 +144,13 @@ async function loadQueryModeItems(db: DbClient, screen: Screen): Promise<Item[]>
 
   const merged = new Map<string, Item>();
 
+  // Archived items (archived_at IS NOT NULL) are excluded from query-mode
+  // screens too — a category/tag rule never surfaces an archived item.
   if (categoryIds.length > 0) {
-    const byCategory = await db.select().from(items).where(inArray(items.categoryId, categoryIds));
+    const byCategory = await db
+      .select()
+      .from(items)
+      .where(and(inArray(items.categoryId, categoryIds), isNull(items.archivedAt)));
     for (const it of byCategory) merged.set(it.id, it);
   }
   if (tagIds.length > 0) {
@@ -150,7 +158,7 @@ async function loadQueryModeItems(db: DbClient, screen: Screen): Promise<Item[]>
       .select({ item: items })
       .from(itemTags)
       .innerJoin(items, eq(itemTags.itemId, items.id))
-      .where(inArray(itemTags.tagId, tagIds));
+      .where(and(inArray(itemTags.tagId, tagIds), isNull(items.archivedAt)));
     for (const row of byTag) merged.set(row.item.id, row.item);
   }
 

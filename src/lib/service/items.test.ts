@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createTestDb } from "@/db/test-db";
 import type { Database } from "@/db";
 import { auditLog, categories, itemTags, items } from "@/db/schema";
@@ -7,6 +7,9 @@ import {
   createItem,
   updateItem,
   deleteItem,
+  archiveItem,
+  unarchiveItem,
+  listItems,
   setItemAvailability,
   setItemTags,
   setFeaturedSlot,
@@ -337,6 +340,81 @@ describe("items service", () => {
 
       const rows = await db.select().from(itemTags).where(eq(itemTags.itemId, item.id));
       expect(rows).toHaveLength(0); // reverted back to the empty baseline
+    });
+  });
+
+  describe("archive / unarchive", () => {
+    const staff: ServiceCaller = {
+      actor: { type: "user", id: "00000000-0000-0000-0000-0000000000cc" },
+      surface: "admin_ui",
+      role: "staff",
+      isActive: true,
+    };
+
+    it("archiveItem sets archived_at and unarchiveItem clears it, leaving availability untouched", async () => {
+      const category = await seedCategory(db);
+      const created = await createItem(db, owner, {
+        name: "Seasonal Cider",
+        categoryId: category.id,
+        priceCents: 700,
+        isAvailable: false, // archive must be orthogonal to availability
+      });
+      expect(created.archivedAt).toBeNull();
+
+      const archived = await archiveItem(db, owner, created.id);
+      expect(archived.archivedAt).toBeInstanceOf(Date);
+      expect(archived.isAvailable).toBe(false); // unchanged by archive
+
+      const restored = await unarchiveItem(db, owner, created.id);
+      expect(restored.archivedAt).toBeNull();
+      expect(restored.isAvailable).toBe(false); // returns exactly as it was
+    });
+
+    it("is allowed for staff (not owner-only) and writes archive_item/unarchive_item audit rows", async () => {
+      const category = await seedCategory(db);
+      const created = await createItem(db, owner, { name: "Staff Archivable", categoryId: category.id });
+
+      await archiveItem(db, staff, created.id);
+      await unarchiveItem(db, staff, created.id);
+
+      const rows = await db.select().from(auditLog).where(eq(auditLog.entityId, created.id));
+      const actions = rows.map((r) => r.action);
+      expect(actions).toContain("archive_item");
+      expect(actions).toContain("unarchive_item");
+    });
+
+    it("listItems excludes archived by default; status filter selects active/archived/all", async () => {
+      const category = await seedCategory(db);
+      const active = await createItem(db, owner, { name: "Active Filter Item", categoryId: category.id });
+      const gone = await createItem(db, owner, { name: "Archived Filter Item", categoryId: category.id });
+      await archiveItem(db, owner, gone.id);
+
+      const defaultList = await listItems(db);
+      expect(defaultList.some((i) => i.id === active.id)).toBe(true);
+      expect(defaultList.some((i) => i.id === gone.id)).toBe(false);
+
+      const archivedList = await listItems(db, { status: "archived" });
+      expect(archivedList.some((i) => i.id === gone.id)).toBe(true);
+      expect(archivedList.some((i) => i.id === active.id)).toBe(false);
+
+      const allList = await listItems(db, { status: "all" });
+      expect(allList.some((i) => i.id === active.id)).toBe(true);
+      expect(allList.some((i) => i.id === gone.id)).toBe(true);
+    });
+
+    it("restores archived_at on revert of an archive_item audit row (generic item revert)", async () => {
+      const category = await seedCategory(db);
+      const created = await createItem(db, owner, { name: "Revert Archive", categoryId: category.id });
+      await archiveItem(db, owner, created.id);
+
+      const [archiveRow] = await db
+        .select()
+        .from(auditLog)
+        .where(and(eq(auditLog.entityId, created.id), eq(auditLog.action, "archive_item")));
+      await revertAuditEntry(db, archiveRow.id, { actor: owner.actor, surface: "admin_ui" });
+
+      const [row] = await db.select().from(items).where(eq(items.id, created.id));
+      expect(row.archivedAt).toBeNull();
     });
   });
 });

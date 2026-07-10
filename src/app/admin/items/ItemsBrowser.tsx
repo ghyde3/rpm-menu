@@ -19,6 +19,7 @@ import type { Category, Item, Tag as TagRow } from "@/db/schema";
 import { formatPrice } from "@/lib/pricing";
 import type { BulkChangeType } from "@/lib/service/bulk-ops";
 import { AvailabilityToggle } from "./AvailabilityToggle";
+import { unarchiveItemAction } from "./actions";
 import {
   previewBulkOperationAction,
   applyBulkOperationAction,
@@ -47,6 +48,8 @@ function priceLabel(item: Item): string | null {
 type BulkOp =
   | "set_available"
   | "set_unavailable"
+  | "archive"
+  | "restore"
   | "change_category"
   | "add_tag"
   | "remove_tag"
@@ -55,6 +58,8 @@ type BulkOp =
 const OP_CHANGE_TYPE: Record<BulkOp, BulkChangeType> = {
   set_available: "bulk_set_availability",
   set_unavailable: "bulk_set_availability",
+  archive: "bulk_archive",
+  restore: "bulk_archive",
   change_category: "bulk_set_category",
   add_tag: "bulk_tag",
   remove_tag: "bulk_tag",
@@ -63,10 +68,13 @@ const OP_CHANGE_TYPE: Record<BulkOp, BulkChangeType> = {
 
 const APPLIED_LABEL: Record<BulkChangeType, string> = {
   bulk_set_availability: "Availability change",
+  bulk_archive: "Archive change",
   bulk_set_category: "Category change",
   bulk_tag: "Tag change",
   bulk_price_adjust: "Price adjustment",
 };
+
+type StatusFilter = "active" | "archived";
 
 const selectStyle: React.CSSProperties = {
   height: "var(--tap-target)",
@@ -82,6 +90,7 @@ export function ItemsBrowser({ items, categories, tags, isOwner }: ItemsBrowserP
   const router = useRouter();
   const [search, setSearch] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState<string>("all");
+  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("active");
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
 
   // Bulk-bar state.
@@ -103,15 +112,21 @@ export function ItemsBrowser({ items, categories, tags, isOwner }: ItemsBrowserP
     [categories],
   );
 
+  // Counts drive the Active | Archived segmented control labels.
+  const archivedCount = React.useMemo(() => items.filter((i) => i.archivedAt !== null).length, [items]);
+  const activeCount = items.length - archivedCount;
+
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter((item) => {
+      const isArchived = item.archivedAt !== null;
+      if (statusFilter === "active" ? isArchived : !isArchived) return false;
       if (categoryFilter !== "all" && item.categoryId !== categoryFilter) return false;
       if (!q) return true;
       const haystack = [item.name, item.description ?? "", ...item.aliases].join(" ").toLowerCase();
       return haystack.includes(q);
     });
-  }, [items, search, categoryFilter]);
+  }, [items, search, categoryFilter, statusFilter]);
 
   const grouped = React.useMemo(() => {
     const map = new Map<string, Item[]>();
@@ -167,6 +182,8 @@ export function ItemsBrowser({ items, categories, tags, isOwner }: ItemsBrowserP
     switch (changeType) {
       case "bulk_set_availability":
         return { changeType, itemIds, isAvailable: currentOp === "set_available" };
+      case "bulk_archive":
+        return { changeType, itemIds, archived: currentOp === "archive" };
       case "bulk_set_category":
         if (!targetCategoryId) {
           setError("Choose a target category.");
@@ -306,6 +323,53 @@ export function ItemsBrowser({ items, categories, tags, isOwner }: ItemsBrowserP
             </option>
           ))}
         </select>
+
+        {/* Active | Archived segmented control (default Active). Archived items
+            are hidden from every customer surface + this default view; owners
+            switch here to see and restore them. */}
+        <div
+          role="group"
+          aria-label="Filter by status"
+          style={{
+            display: "flex",
+            flexShrink: 0,
+            border: "var(--bw) solid var(--border-strong)",
+            borderRadius: "var(--radius-sm)",
+            overflow: "hidden",
+          }}
+        >
+          {(["active", "archived"] as const).map((value) => {
+            const isActive = statusFilter === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => {
+                  setStatusFilter(value);
+                  setSelected(new Set());
+                  clearBulkOutcome();
+                  setOp("");
+                }}
+                aria-pressed={isActive}
+                style={{
+                  height: "var(--tap-target)",
+                  padding: "0 var(--sp-4)",
+                  cursor: "pointer",
+                  border: "none",
+                  fontFamily: "var(--font-heading)",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "var(--ls-caps)",
+                  fontSize: "0.8125rem",
+                  background: isActive ? "var(--accent-primary)" : "var(--surface-inset)",
+                  color: isActive ? "#fff" : "var(--text-secondary)",
+                }}
+              >
+                {value === "active" ? `Active (${activeCount})` : `Archived (${archivedCount})`}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* --- Inline bulk bar (wp-admin style) --- */}
@@ -335,12 +399,19 @@ export function ItemsBrowser({ items, categories, tags, isOwner }: ItemsBrowserP
               aria-label="Bulk actions"
             >
               <option value="">Bulk actions…</option>
-              <option value="set_available">Set available</option>
-              <option value="set_unavailable">Set unavailable</option>
-              <option value="change_category">Change category…</option>
-              <option value="add_tag">Add tag…</option>
-              <option value="remove_tag">Remove tag…</option>
-              {isOwner && <option value="adjust_price">Adjust price…</option>}
+              {statusFilter === "active" ? (
+                <>
+                  <option value="set_available">Set available</option>
+                  <option value="set_unavailable">Set unavailable</option>
+                  <option value="archive">Archive</option>
+                  <option value="change_category">Change category…</option>
+                  <option value="add_tag">Add tag…</option>
+                  <option value="remove_tag">Remove tag…</option>
+                  {isOwner && <option value="adjust_price">Adjust price…</option>}
+                </>
+              ) : (
+                <option value="restore">Restore</option>
+              )}
             </select>
 
             {needsCategory && (
@@ -562,6 +633,8 @@ function ItemRow({
   onToggleSelect: () => void;
 }) {
   const price = priceLabel(item);
+  const isArchived = item.archivedAt !== null;
+  const nameDimmed = isArchived || !item.isAvailable;
   return (
     <Card
       style={{
@@ -570,6 +643,8 @@ function ItemRow({
         gap: "var(--sp-4)",
         padding: "var(--sp-3) var(--sp-4)",
         borderColor: selected ? "var(--accent-primary)" : undefined,
+        // Archived rows read as removed-but-recoverable — dimmed as a whole.
+        opacity: isArchived ? 0.6 : 1,
       }}
     >
       <input
@@ -579,7 +654,9 @@ function ItemRow({
         aria-label={`Select ${item.name}`}
         style={{ flexShrink: 0 }}
       />
-      <AvailabilityToggle itemId={item.id} initialAvailable={item.isAvailable} />
+      {/* Archived items expose Restore (unarchive) where active rows show the
+          86 availability toggle — availability is meaningless while archived. */}
+      {isArchived ? <RestoreButton itemId={item.id} /> : <AvailabilityToggle itemId={item.id} initialAvailable={item.isAvailable} />}
       <Link
         href={`/admin/items/${item.id}`}
         style={{
@@ -592,18 +669,38 @@ function ItemRow({
           gap: "var(--sp-3)",
         }}
       >
-        <span
-          style={{
-            fontFamily: "var(--font-heading)",
-            color: item.isAvailable ? "var(--text-primary)" : "var(--text-faint)",
-            textDecoration: item.isAvailable ? "none" : "line-through",
-            fontWeight: 600,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {item.name}
+        <span style={{ display: "flex", alignItems: "center", gap: "var(--sp-2)", minWidth: 0 }}>
+          {isArchived && (
+            <span
+              style={{
+                flexShrink: 0,
+                fontFamily: "var(--font-heading)",
+                textTransform: "uppercase",
+                letterSpacing: "var(--ls-caps)",
+                fontSize: "0.625rem",
+                fontWeight: 700,
+                color: "var(--text-on-accent)",
+                background: "var(--accent-price)",
+                borderRadius: "var(--radius-sm)",
+                padding: "0.1rem var(--sp-2)",
+              }}
+            >
+              Archived
+            </span>
+          )}
+          <span
+            style={{
+              fontFamily: "var(--font-heading)",
+              color: nameDimmed ? "var(--text-faint)" : "var(--text-primary)",
+              textDecoration: item.isAvailable ? "none" : "line-through",
+              fontWeight: 600,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {item.name}
+          </span>
         </span>
         {price && (
           <span
@@ -630,5 +727,29 @@ function ItemRow({
         </Button>
       </Link>
     </Card>
+  );
+}
+
+/** Inline one-click Restore (unarchive) for an archived row. Refreshes the
+ * server component so the item drops back into the Active view. */
+function RestoreButton({ itemId }: { itemId: string }) {
+  const router = useRouter();
+  const [pending, setPending] = React.useState(false);
+  return (
+    <Button
+      variant="secondary"
+      size="sm"
+      type="button"
+      disabled={pending}
+      style={{ flexShrink: 0 }}
+      onClick={async () => {
+        setPending(true);
+        const result = await unarchiveItemAction(itemId);
+        setPending(false);
+        if (result.ok) router.refresh();
+      }}
+    >
+      {pending ? "Restoring…" : "Restore"}
+    </Button>
   );
 }

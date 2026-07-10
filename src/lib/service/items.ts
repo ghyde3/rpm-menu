@@ -1,7 +1,7 @@
 // Items CRUD + availability toggle + featured-slot swap (PRD §5.1, addendum
 // §2). Every mutation: Zod-validate -> role-check -> write -> withAudit ->
 // bumpAffectedScreens, per docs/architecture.md's "Service layer" contract.
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, isNotNull } from "drizzle-orm";
 import {
   items,
   itemTags,
@@ -48,8 +48,24 @@ export async function getItemTagIds(db: DbClient, itemId: string): Promise<strin
   return rows.map((r) => r.tagId);
 }
 
-export async function listItems(db: DbClient): Promise<Item[]> {
-  return db.select().from(items);
+/** Archive-status view for `listItems`. `active` (the default) excludes
+ * archived items — every consumer surface (public menu, TV, REST, MCP) and
+ * the default admin list want only active items, so defaulting to `active`
+ * makes archived-exclusion the safe default nothing has to opt into.
+ * `archived` returns only archived items (the admin "Archived" filter);
+ * `all` returns both (the admin browser fetches this once and segments
+ * client-side). */
+export type ItemStatusFilter = "active" | "archived" | "all";
+
+export interface ListItemsOptions {
+  status?: ItemStatusFilter;
+}
+
+export async function listItems(db: DbClient, opts: ListItemsOptions = {}): Promise<Item[]> {
+  const status = opts.status ?? "active";
+  if (status === "all") return db.select().from(items);
+  const predicate = status === "archived" ? isNotNull(items.archivedAt) : isNull(items.archivedAt);
+  return db.select().from(items).where(predicate);
 }
 
 export async function getItem(db: DbClient, itemId: string): Promise<Item> {
@@ -193,6 +209,75 @@ export async function setItemAvailability(
       const [after] = await db
         .update(items)
         .set({ isAvailable: input.isAvailable, updatedAt: new Date() })
+        .where(eq(items.id, itemId))
+        .returning();
+      return { result: after, after };
+    },
+  );
+
+  const tagIds = await getItemTagIds(db, itemId);
+  await bumpAffectedScreens(db, { itemIds: [itemId], categoryIds: [before.categoryId], tagIds });
+  return updated;
+}
+
+/** Archive an item (reversible soft-remove, distinct from permanent delete):
+ * sets `archived_at = now()`, removing it from every customer/consumer
+ * surface and the default admin list while keeping the record. Orthogonal to
+ * availability — `is_available` is untouched, so a restored item returns
+ * exactly as it was. Staff-or-owner, matching the availability/category-edit
+ * gate (archiving hides an item, it doesn't touch prices). Revert is handled
+ * by the generic `item` revert handler below (archived_at is a plain items
+ * row field, restored with the rest of the `before` snapshot). */
+export async function archiveItem(db: DbClient, caller: ServiceCaller, itemId: string): Promise<Item> {
+  requireStaffOrOwnerCaller(caller);
+  const before = await getItemOrThrow(db, itemId);
+
+  const updated = await withAudit(
+    db,
+    {
+      actor: caller.actor,
+      surface: caller.surface,
+      action: "archive_item",
+      entityType: "item",
+      entityId: itemId,
+      before,
+    },
+    async () => {
+      const [after] = await db
+        .update(items)
+        .set({ archivedAt: new Date(), updatedAt: new Date() })
+        .where(eq(items.id, itemId))
+        .returning();
+      return { result: after, after };
+    },
+  );
+
+  const tagIds = await getItemTagIds(db, itemId);
+  await bumpAffectedScreens(db, { itemIds: [itemId], categoryIds: [before.categoryId], tagIds });
+  return updated;
+}
+
+/** Restore an archived item: clears `archived_at`, bringing it back to every
+ * surface exactly as it was (availability, price, tags all preserved). No-op-
+ * safe on an already-active item. Staff-or-owner, mirroring `archiveItem`. */
+export async function unarchiveItem(db: DbClient, caller: ServiceCaller, itemId: string): Promise<Item> {
+  requireStaffOrOwnerCaller(caller);
+  const before = await getItemOrThrow(db, itemId);
+
+  const updated = await withAudit(
+    db,
+    {
+      actor: caller.actor,
+      surface: caller.surface,
+      action: "unarchive_item",
+      entityType: "item",
+      entityId: itemId,
+      before,
+    },
+    async () => {
+      const [after] = await db
+        .update(items)
+        .set({ archivedAt: null, updatedAt: new Date() })
         .where(eq(items.id, itemId))
         .returning();
       return { result: after, after };
