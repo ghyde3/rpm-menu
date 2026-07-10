@@ -71,6 +71,97 @@ describe("withAudit + revertAuditEntry", () => {
     expect((row.after as { name: string }).name).toBe("Starters");
   });
 
+  it("backfills entity_id from after.id for a create (entityId passed as null)", async () => {
+    const created = await withAudit(
+      db,
+      {
+        actor: systemActor,
+        surface: "admin_ui",
+        action: "create_category",
+        entityType: "category",
+        entityId: null, // the id doesn't exist yet when this call is made
+        before: null,
+      },
+      async () => {
+        const [after] = await db.insert(categories).values({ name: "Salads", type: "food" }).returning();
+        return { result: after, after };
+      },
+    );
+
+    const [row] = await db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.entityId, created.id));
+    // entity_id must be populated at write time, not left null.
+    expect(row.entityId).toBe(created.id);
+    expect(row.action).toBe("create_category");
+    expect(row.before).toBeNull();
+    expect((row.after as { id: string }).id).toBe(created.id);
+  });
+
+  it("reverts a create (entity_id backfilled from after.id) through the generic registered-handler dispatcher, no revert.ts-side workaround needed", async () => {
+    const created = await withAudit(
+      db,
+      {
+        actor: systemActor,
+        surface: "admin_ui",
+        action: "create_category",
+        entityType: "category",
+        entityId: null,
+        before: null,
+      },
+      async () => {
+        const [after] = await db.insert(categories).values({ name: "Soups", type: "food" }).returning();
+        return { result: after, after };
+      },
+    );
+
+    const [row] = await db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.entityId, created.id));
+    expect(row).toBeTruthy();
+
+    // revertAuditEntry is the generic dispatcher -- no per-domain "backfill
+    // the id first" step required, because withAudit already wrote the
+    // correct entity_id at create time.
+    await revertAuditEntry(db, row.id, { actor: systemActor, surface: "admin_ui" });
+
+    const remaining = await db.select().from(categories).where(eq(categories.id, created.id));
+    expect(remaining).toHaveLength(0);
+  });
+
+  it("uses the explicitly-passed entityId verbatim for a non-create mutation", async () => {
+    const [existing] = await db.insert(categories).values({ name: "Sides", type: "food" }).returning();
+
+    await withAudit(
+      db,
+      {
+        actor: systemActor,
+        surface: "admin_ui",
+        action: "update_category",
+        entityType: "category",
+        entityId: existing.id,
+        before: existing,
+      },
+      async () => {
+        const [after] = await db
+          .update(categories)
+          .set({ name: "Sides & Extras" })
+          .where(eq(categories.id, existing.id))
+          .returning();
+        return { result: after, after };
+      },
+    );
+
+    const [row] = await db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.entityId, existing.id));
+    expect(row.action).toBe("update_category");
+    expect(row.entityId).toBe(existing.id);
+  });
+
   it("round-trips a revert: reverting an update restores the prior row and audits the revert itself", async () => {
     const [created] = await db.insert(categories).values({ name: "Drinks", type: "drink" }).returning();
 

@@ -247,11 +247,11 @@ describe("displays service", () => {
     expect(restored.name).toBe("Revert-delete TV");
   });
 
-  it("cannot revert a create directly (entityId is null on create audit rows, consistent with screens/items — backfilling entityId from `after` is src/lib/service/revert.ts's job, not this module's)", async () => {
+  it("reverts a create directly through the generic dispatcher (entityId is populated from after.id at write time)", async () => {
     const { auditLog } = await import("@/db/schema");
     const { desc } = await import("drizzle-orm");
     const { code } = await createPairingCode(db);
-    await claimPairingCode(db, owner, { code, name: "Revert-create TV" });
+    const created = await claimPairingCode(db, owner, { code, name: "Revert-create TV" });
 
     const [createEntry] = await db
       .select()
@@ -259,10 +259,10 @@ describe("displays service", () => {
       .where(eq(auditLog.action, "create_display"))
       .orderBy(desc(auditLog.createdAt))
       .limit(1);
-    expect(createEntry.entityId).toBeNull();
+    expect(createEntry.entityId).toBe(created.id);
 
-    await expect(
-      revertAuditEntry(db, createEntry.id, { actor: owner.actor, surface: owner.surface }),
-    ).rejects.toThrow(ConflictError);
+    await revertAuditEntry(db, createEntry.id, { actor: owner.actor, surface: owner.surface });
+
+    await expect(getDisplay(db, owner, created.id)).rejects.toThrow(NotFoundError);
   });
 });

@@ -147,19 +147,16 @@ describe("screens service", () => {
   });
 
   describe("revert", () => {
-    // NOTE: `entityId` is `null` on every "create" audit row across this
-    // codebase (items.ts/categories.ts do the same — the row's before/after
-    // is captured before the DB-generated id exists), so a create audit row
-    // can never be looked up by entityId and is not revertable through this
-    // generic mechanism. This mirrors items.ts's/categories.ts's revert
-    // handlers, which throw for the same reason — documented here rather
-    // than "fixed" locally, since fixing it would mean diverging from the
-    // shared convention for this one entity type.
-    it("cannot revert a create (entityId is null on create audit rows, consistent with items/categories)", async () => {
+    // M3 cleanup: `withAudit` (src/lib/service/base/audit.ts) now derives
+    // `entity_id` from the mutation's own `after.id` when the caller passes
+    // `entityId: null` (the create-time case, since the row doesn't exist
+    // yet when the call is made) — every "create_*" audit row across the
+    // codebase, this one included, carries its real entity_id from the
+    // moment it's written. That makes a create genuinely revertable (=
+    // delete) through the generic `revertAuditEntry` dispatcher, same as
+    // items.ts/categories.ts.
+    it("reverts a create by deleting the row, through the generic dispatcher", async () => {
       const created = await createScreen(db, owner, { name: "Not Revertable" });
-      // Every "create_screen" row has entityId=null (the id doesn't exist
-      // yet when the audit meta is built); grab the most recent one — this
-      // is the row `createScreen` above just wrote.
       const [auditRow] = await db
         .select()
         .from(auditLog)
@@ -167,15 +164,12 @@ describe("screens service", () => {
         .orderBy(desc(auditLog.createdAt))
         .limit(1);
       expect(auditRow).toBeDefined();
-      expect(auditRow.entityId).toBeNull();
+      expect(auditRow.entityId).toBe(created.id);
 
-      await expect(
-        revertAuditEntry(db, auditRow.id, { actor: owner.actor, surface: "admin_ui" }),
-      ).rejects.toThrow();
+      await revertAuditEntry(db, auditRow.id, { actor: owner.actor, surface: "admin_ui" });
 
-      // The screen is untouched — revert failed before mutating anything.
       const rows = await db.select().from(screens).where(eq(screens.id, created.id));
-      expect(rows).toHaveLength(1);
+      expect(rows).toHaveLength(0);
     });
 
     it("reverts an update by restoring the prior row", async () => {

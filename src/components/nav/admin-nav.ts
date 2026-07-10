@@ -9,6 +9,8 @@ export interface AdminNavItem {
 
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { label: "Items", href: "/admin/items" },
+  { label: "Categories", href: "/admin/categories" },
+  { label: "Tags", href: "/admin/tags" },
   { label: "Screens", href: "/admin/screens" },
   { label: "Displays", href: "/admin/settings/displays" },
   { label: "Schedule", href: "/admin/schedule" },

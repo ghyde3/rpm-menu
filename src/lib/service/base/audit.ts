@@ -15,6 +15,10 @@ export interface AuditMeta {
    * the REST intent / MCP tool name (§3.7). */
   action: string;
   entityType: EntityType;
+  /** Pass `null` for creates, when the id doesn't exist yet at call time —
+   * `withAudit` backfills it post-hoc from `after.id` once the mutation has
+   * run (see `withAudit`'s doc comment). Pass the real id for every other
+   * mutation shape (update/delete/etc). */
   entityId: string | null;
   /** Entity state before the mutation (or null for creates). */
   before: unknown;
@@ -47,11 +51,35 @@ export async function writeAuditLog(
   });
 }
 
+/** Root-fix for the "every create_* audit row has entity_id=null" defect: a
+ * `create_*` mutation calls `withAudit` with `entityId: null` because the
+ * row's id doesn't exist yet when the call is made — the id only comes into
+ * being inside `fn`'s insert. Rather than every domain `create*` function
+ * re-deriving and threading its own id back in, `withAudit` derives it
+ * post-hoc, generically, from the mutation's own `after` result: if the
+ * caller passed `entityId: null` and `after` is an object with a string
+ * `id` field (true for every `insert(...).returning()` result in this
+ * codebase), that `id` becomes `audit_log.entity_id`. Explicit non-null
+ * `entityId`s (update/delete/etc.) are never touched. This makes every
+ * created entity revertable via the generic `registerRevertHandler`
+ * dispatcher from the moment it's created — no separate backfill pass
+ * needed on read. */
+function deriveEntityId(entityId: string | null, after: unknown): string | null {
+  if (entityId !== null) return entityId;
+  if (after && typeof after === "object" && typeof (after as Record<string, unknown>).id === "string") {
+    return (after as Record<string, unknown>).id as string;
+  }
+  return null;
+}
+
 /**
  * Runs `fn` (the actual DB mutation), then writes the audit row with the
  * `before` value supplied by the caller and the `after` value `fn` returns.
- * Run inside a `db.transaction(...)` when the mutation and the audit row
- * must commit atomically (recommended for anything non-trivial).
+ * `entity_id` is `meta.entityId` verbatim, unless the caller passed `null`
+ * (the create-time case), in which case it's derived from `after.id` — see
+ * `deriveEntityId`. Run inside a `db.transaction(...)` when the mutation and
+ * the audit row must commit atomically (recommended for anything
+ * non-trivial).
  *
  * ```ts
  * return withAudit(db, {
@@ -69,7 +97,8 @@ export async function withAudit<T>(
   fn: () => Promise<WithAuditOutcome<T>>,
 ): Promise<T> {
   const { result, after } = await fn();
-  await writeAuditLog(db, { ...meta, after });
+  const entityId = deriveEntityId(meta.entityId, after);
+  await writeAuditLog(db, { ...meta, entityId, after });
   return result;
 }
 

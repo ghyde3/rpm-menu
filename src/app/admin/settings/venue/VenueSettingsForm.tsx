@@ -35,6 +35,12 @@ interface FormState {
   name: string;
   address: string;
   phone: string;
+  /** Read-only passthrough -- Branding (`/admin/settings/branding`) owns the
+   * real logo upload/write path for this column. This tab used to expose a
+   * raw-text "Logo Image ID (advanced)" field that let two surfaces write
+   * the same `venue_settings.logo_image_id` column; that field was removed
+   * (M3 cleanup). We still carry the current value through unedited on save
+   * so submitting this form never clobbers whatever Branding last set. */
   logoImageId: string;
   website: string;
   instagram: string;
@@ -178,12 +184,6 @@ export function VenueSettingsForm({ initialSettings }: { initialSettings: VenueS
             rows={2}
           />
           <Input label="Phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
-          <Input
-            label="Logo Image ID (advanced)"
-            value={form.logoImageId}
-            onChange={(e) => set("logoImageId", e.target.value)}
-            hint="Uploading a logo needs the image pipeline (§3.1a), which isn't wired into this tab yet — paste an existing images.id if you have one."
-          />
         </div>
       </Card>
 

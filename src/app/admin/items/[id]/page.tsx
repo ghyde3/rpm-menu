@@ -3,7 +3,7 @@
 // modifiers unit — src/app/admin/items/[id]/modifiers/**, not this one).
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getItem, getItemTagIds, listItemPriceVariants } from "@/lib/service/items";
+import { getItem, getItemTagIds, listItemPriceVariants, listItems } from "@/lib/service/items";
 import { listCategories } from "@/lib/service/categories";
 import { listTags } from "@/lib/service/tags";
 import { NotFoundError } from "@/lib/service/base/errors";
@@ -14,6 +14,7 @@ import { ItemForm } from "../ItemForm";
 import { TagAssignment } from "./TagAssignment";
 import { PriceVariantsEditor } from "./PriceVariantsEditor";
 import { DeleteItemButton } from "./DeleteItemButton";
+import { FeaturedSlotPicker, KNOWN_FEATURED_SLOTS, type FeaturedSlotHolder } from "./FeaturedSlotPicker";
 
 export default async function ItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -26,12 +27,24 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
   });
   if (!item) notFound();
 
-  const [categories, tags, currentTagIds, priceVariants] = await Promise.all([
+  const [categories, tags, currentTagIds, priceVariants, allItems] = await Promise.all([
     listCategories(db),
     listTags(db),
     getItemTagIds(db, id),
     listItemPriceVariants(db, id),
+    listItems(db),
   ]);
+
+  // Current holder of each known featured slot (excluding this item itself)
+  // so the picker can warn before a reassignment silently steals the slot.
+  const featuredSlotHolders = KNOWN_FEATURED_SLOTS.reduce<Record<string, FeaturedSlotHolder | undefined>>(
+    (acc, slot) => {
+      const holder = allItems.find((i) => i.featuredSlotKey === slot.key && i.id !== item.id);
+      if (holder) acc[slot.key] = { id: holder.id, name: holder.name };
+      return acc;
+    },
+    {},
+  );
 
   return (
     <div>
@@ -99,6 +112,26 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
             e.g. pint/pitcher, cup/bowl, full/half. Owner only.
           </p>
           <PriceVariantsEditor itemId={item.id} initialVariants={priceVariants} isOwner={isOwner} />
+        </Card>
+
+        <Card>
+          <h2
+            style={{
+              fontFamily: "var(--font-heading)",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "var(--ls-caps)",
+              color: "var(--text-muted)",
+              marginBottom: "var(--sp-3)",
+            }}
+          >
+            Featured Slot
+          </h2>
+          <p style={{ color: "var(--text-faint)", fontFamily: "var(--font-body)", fontSize: "0.8125rem", marginTop: 0 }}>
+            e.g. Drink of the Week, Dessert of the Day — exactly one item holds each slot at a time.
+          </p>
+          <FeaturedSlotPicker itemId={item.id} currentSlotKey={item.featuredSlotKey} holders={featuredSlotHolders} />
         </Card>
 
         {isOwner && (

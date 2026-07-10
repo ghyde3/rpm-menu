@@ -21,7 +21,7 @@ import "@/lib/service/schedules";
 import "@/lib/service/settings/api-keys";
 
 import { desc, eq, inArray } from "drizzle-orm";
-import { auditLog, itemTags, users, type ActorType, type EntityType } from "@/db/schema";
+import { auditLog, users, type ActorType, type EntityType } from "@/db/schema";
 import {
   requireOwnerCaller,
   requireStaffOrOwnerCaller,
@@ -93,21 +93,18 @@ export async function listRecentChanges(
     })
     .slice(offset, offset + limit);
 
-  // Backfill entity_id for any create-shaped row this page surfaces (see
-  // `withBackfilledEntityId`'s doc) so the feed's entries are consistently
-  // clickable/revertable rather than only becoming so the first time
-  // someone happens to open the individual revert action.
-  const filtered = await Promise.all(page.map((r) => withBackfilledEntityId(db, r)));
-
+  // `audit_log.entity_id` is populated at write time for every mutation,
+  // including creates (base/audit.ts's `withAudit` derives it from the
+  // insert's own `after.id` post-hoc) -- no read-time backfill needed here.
   const actorIds = Array.from(
-    new Set(filtered.filter((r) => r.actorType === "user" && r.actorId).map((r) => r.actorId as string)),
+    new Set(page.filter((r) => r.actorType === "user" && r.actorId).map((r) => r.actorId as string)),
   );
   const actorRows = actorIds.length
     ? await db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, actorIds))
     : [];
   const nameById = new Map(actorRows.map((u) => [u.id, u.name]));
 
-  return filtered.map((r) => ({
+  return page.map((r) => ({
     ...r,
     actorName: r.actorType === "user" && r.actorId ? (nameById.get(r.actorId) ?? null) : null,
     bulkGroup: parseBulkGroupAction(r.action),
@@ -130,28 +127,14 @@ export async function listChangeActors(db: DbClient, caller: ServiceCaller): Pro
 }
 
 // --- Revert --------------------------------------------------------------
-
-/** `items.ts`'s registered "item" revert handler intentionally no-ops when
- * `before` carries a `{ tagIds }` shape (a `set_item_tags`/`bulk_tag` audit
- * row is not a row-level `items` change -- it only owns membership in
- * `item_tags`, a table the generic handler never touches). Restoring that
- * membership is this unit's job, not items.ts's, so this file special-cases
- * the shape here rather than delegating to `revertAuditEntry` for it. */
-function isTagSetShape(value: unknown): value is { tagIds: string[] } {
-  return (
-    !!value &&
-    typeof value === "object" &&
-    Array.isArray((value as Record<string, unknown>).tagIds) &&
-    (value as Record<string, unknown>).tagIds !== undefined
-  );
-}
-
-async function restoreItemTagMembership(db: DbClient, itemId: string, tagIds: string[]): Promise<void> {
-  await db.delete(itemTags).where(eq(itemTags.itemId, itemId));
-  if (tagIds.length > 0) {
-    await db.insert(itemTags).values(tagIds.map((tagId) => ({ itemId, tagId })));
-  }
-}
+//
+// `items.ts`'s registered "item" revert handler (base/audit.ts's generic
+// dispatcher) now genuinely restores `item_tags` membership itself when an
+// audit row's `before` carries a `{ tagIds }` shape (a `set_item_tags`/
+// `bulk_tag` mutation) -- see items.ts's `restoreItemTagMembership`. This
+// file no longer needs its own tag-shape special case: every entity type,
+// item-tag-set rows included, reverts through the single `revertAuditEntry`
+// dispatcher call below.
 
 function priceChanged(before: unknown, after: unknown): boolean {
   if (!before || !after || typeof before !== "object" || typeof after !== "object") return false;
@@ -226,63 +209,19 @@ async function getAuditEntryOrThrow(db: DbClient, auditEntryId: string): Promise
   return entry;
 }
 
-/** Every domain service's `create_*` mutation writes its audit row with
- * `entityId: null` -- the id doesn't exist yet when the `withAudit` meta
- * object is built, and `withAudit`'s (base/audit.ts) signature has no way
- * to backfill it from the mutation's own return value. That leaves
- * `revertAuditEntry`'s per-domain handlers unable to revert (= delete) a
- * create: every one of them throws on a null `entityId` (see items.ts's
- * "item revert requires an entity_id"). Since `entry.after` for a create is
- * the full inserted row -- which does carry its own `id` -- this backfills
- * `audit_log.entity_id` once, in place, the first time a create-shaped row
- * is looked up for revert. This is a data-quality correction (every other
- * read of this row, e.g. the Recent Changes feed, benefits too), not a
- * new field or schema change. */
-async function withBackfilledEntityId(db: DbClient, entry: AuditLogRow): Promise<AuditLogRow> {
-  if (entry.entityId !== null || entry.before !== null) return entry;
-  const after = entry.after;
-  if (!after || typeof after !== "object" || typeof (after as Record<string, unknown>).id !== "string") {
-    return entry;
-  }
-  const derivedId = (after as Record<string, unknown>).id as string;
-  const [updated] = await db
-    .update(auditLog)
-    .set({ entityId: derivedId })
-    .where(eq(auditLog.id, entry.id))
-    .returning();
-  return updated ?? entry;
-}
-
-/** Reverts one audit row: role-gated per `requireRevertRole`, then either
- * the tag-membership special case above or the shared generic
- * `revertAuditEntry` dispatcher (base/audit.ts), followed by a screens
- * bump. `revertAuditEntry` already writes its own compensating,
- * itself-revertable audit row (§3.5: "writes a compensating change, also
- * audited") -- this function does the same for the tag-membership case. */
+/** Reverts one audit row: role-gated per `requireRevertRole`, then the
+ * shared generic `revertAuditEntry` dispatcher (base/audit.ts) -- which
+ * already writes its own compensating, itself-revertable audit row (§3.5:
+ * "writes a compensating change, also audited") -- followed by a screens
+ * bump. */
 export async function revertChange(db: DbClient, caller: ServiceCaller, auditEntryId: string): Promise<void> {
-  const entry = await withBackfilledEntityId(db, await getAuditEntryOrThrow(db, auditEntryId));
+  const entry = await getAuditEntryOrThrow(db, auditEntryId);
   requireRevertRole(caller, entry);
 
   const meta: { actor: Actor; surface: ServiceCaller["surface"] } = { actor: caller.actor, surface: caller.surface };
 
   await db.transaction(async (tx) => {
-    if (entry.entityType === "item" && isTagSetShape(entry.before)) {
-      if (!entry.entityId) throw new ConflictError("item tag revert requires an entity_id");
-      const restoredTagIds = entry.before.tagIds;
-      await restoreItemTagMembership(tx, entry.entityId, restoredTagIds);
-      await tx.insert(auditLog).values({
-        actorType: meta.actor.type,
-        actorId: meta.actor.id,
-        surface: meta.surface,
-        action: `revert:${entry.action}`,
-        entityType: "item",
-        entityId: entry.entityId,
-        before: entry.after,
-        after: entry.before,
-      });
-    } else {
-      await revertAuditEntry(tx, entry.id, meta);
-    }
+    await revertAuditEntry(tx, entry.id, meta);
     await bumpForRevertedEntry(tx, entry);
   });
 }
@@ -324,22 +263,7 @@ export async function revertBulkGroup(
 
   await db.transaction(async (tx) => {
     for (const entry of rows) {
-      if (entry.entityType === "item" && isTagSetShape(entry.before)) {
-        if (!entry.entityId) continue;
-        await restoreItemTagMembership(tx, entry.entityId, entry.before.tagIds);
-        await tx.insert(auditLog).values({
-          actorType: meta.actor.type,
-          actorId: meta.actor.id,
-          surface: meta.surface,
-          action: `revert:${entry.action}`,
-          entityType: "item",
-          entityId: entry.entityId,
-          before: entry.after,
-          after: entry.before,
-        });
-      } else {
-        await revertAuditEntry(tx, entry.id, meta);
-      }
+      await revertAuditEntry(tx, entry.id, meta);
       await bumpForRevertedEntry(tx, entry);
     }
   });

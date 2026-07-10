@@ -31,6 +31,7 @@ import {
 import { parseFoodMenu, type ParsedFoodItem, type ParsedFoodSection } from "./parse-food";
 import { parseDrinksMenu } from "./parse-drinks";
 import { extractCents, splitChoiceList, titleCase } from "./extract";
+import { getItemAliases } from "./aliases";
 
 const FOOD_MD = path.resolve(process.cwd(), "rpm-menu-extracted.md");
 const DRINKS_MD = path.resolve(process.cwd(), "rpm-drinks-extracted.md");
@@ -171,6 +172,7 @@ export async function importMenu(db: Database): Promise<void> {
       pricingType,
       categoryId: categoryIdByName.get(categoryName)!,
       sortOrder,
+      aliases: getItemAliases(name),
     });
     itemIdByName.set(name, created.id);
     return created.id;
@@ -275,6 +277,7 @@ export async function importMenu(db: Database): Promise<void> {
       pricingType: "fixed",
       categoryId: categoryIdByName.get(categoryName)!,
       sortOrder: idx,
+      aliases: getItemAliases(name),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       attributes: (attributes ?? {}) as any,
     });
@@ -697,9 +700,39 @@ export async function importMenu(db: Database): Promise<void> {
     );
   }
 
+  // Search-alias spot check (task's own named examples: "BLT", "reuben",
+  // "corndog") — guards against the aliases wiring silently regressing to []
+  // (e.g. a future refactor dropping the `aliases:` field from the
+  // createItem() calls above).
+  const aliasSpotChecks: { itemName: string; expectedAlias: string }[] = [
+    { itemName: "Blackened Chicken BLT", expectedAlias: "BLT" },
+    { itemName: "Monster Reuben", expectedAlias: "Reuben" },
+    { itemName: "Foot Long Corndogs", expectedAlias: "Corndog" },
+  ];
+  for (const { itemName, expectedAlias } of aliasSpotChecks) {
+    const itemId = itemIdByName.get(itemName);
+    if (!itemId) throw new Error(`Assertion failed: alias spot check couldn't find item "${itemName}"`);
+    const [row] = await db.select({ aliases: items.aliases }).from(items).where(eq(items.id, itemId));
+    if (!row?.aliases.includes(expectedAlias)) {
+      throw new Error(
+        `Assertion failed: expected "${itemName}" aliases to include "${expectedAlias}", found [${row?.aliases.join(", ")}]`,
+      );
+    }
+  }
+
+  const itemsWithAnyAlias = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(items)
+    .where(sql`array_length(${items.aliases}, 1) > 0`);
+  const itemsWithAnyAliasCount = itemsWithAnyAlias[0]?.count ?? 0;
+  if (itemsWithAnyAliasCount === 0) {
+    throw new Error("Assertion failed: expected at least one item with a populated aliases array, found 0");
+  }
+
   console.log("All hard assertions passed:");
   console.log(`  total items = ${totalItems}`);
   console.log(`  Wing Sauce Choice options = ${wingSauceCount}`);
   console.log(`  Included Side options = ${includedSideCount} (all linked to Sides items)`);
   console.log(`  ambiguous options with a non-null price = ${ambiguousWithPriceCount}`);
+  console.log(`  items with a populated aliases array = ${itemsWithAnyAliasCount}`);
 }

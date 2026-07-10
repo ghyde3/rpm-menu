@@ -2,18 +2,21 @@ import { describe, expect, it, beforeAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { createTestDb } from "@/db/test-db";
 import type { Database } from "@/db";
-import { categories, items } from "@/db/schema";
+import { auditLog, categories, itemTags, items } from "@/db/schema";
 import {
   createItem,
   updateItem,
   deleteItem,
   setItemAvailability,
+  setItemTags,
   setFeaturedSlot,
   clearFeaturedSlot,
   createItemPriceVariant,
   updateItemPriceVariant,
   deleteItemPriceVariant,
 } from "./items";
+import { revertAuditEntry } from "./base/audit";
+import { createTag } from "./tags";
 import type { ServiceCaller } from "./base";
 
 const owner: ServiceCaller = {
@@ -202,6 +205,50 @@ describe("items service", () => {
 
       const holders = await db.select().from(items).where(eq(items.featuredSlotKey, "concurrent_slot"));
       expect(holders).toHaveLength(1);
+    });
+  });
+
+  describe("revert (registered \"item\" handler)", () => {
+    it("create_item's audit row already carries the real entity_id (no null entity_id, no separate backfill)", async () => {
+      const category = await seedCategory(db);
+      const created = await createItem(db, owner, { name: "Nachos", categoryId: category.id });
+
+      const [row] = await db.select().from(auditLog).where(eq(auditLog.entityId, created.id));
+      expect(row).toBeTruthy();
+      expect(row.action).toBe("create_item");
+      expect(row.entityId).toBe(created.id);
+    });
+
+    it("reverts a create_item audit row through the generic dispatcher directly (delete)", async () => {
+      const category = await seedCategory(db);
+      const created = await createItem(db, owner, { name: "Loaded Fries", categoryId: category.id });
+
+      const [row] = await db.select().from(auditLog).where(eq(auditLog.entityId, created.id));
+      await revertAuditEntry(db, row.id, { actor: owner.actor, surface: "admin_ui" });
+
+      const rows = await db.select().from(items).where(eq(items.id, created.id));
+      expect(rows).toHaveLength(0);
+    });
+
+    it("restores item_tags membership (not a no-op) when a set_item_tags audit row is reverted through the generic dispatcher", async () => {
+      const category = await seedCategory(db);
+      const item = await createItem(db, owner, { name: "Pretzel Bites", categoryId: category.id });
+      await setItemTags(db, owner, item.id, { tagIds: [] }); // baseline: no tags
+      const beforeSecondSet = await db.select().from(itemTags).where(eq(itemTags.itemId, item.id));
+      expect(beforeSecondSet).toHaveLength(0);
+
+      const tag = await createTag(db, owner, { name: "pretzel-tag", visibility: "public" });
+      await setItemTags(db, owner, item.id, { tagIds: [tag.id] });
+
+      const auditRows = await db.select().from(auditLog).where(eq(auditLog.entityId, item.id));
+      const tagSetRows = auditRows.filter((r) => r.action === "set_item_tags");
+      const tagSetRow = tagSetRows[tagSetRows.length - 1];
+      expect(tagSetRow).toBeTruthy();
+
+      await revertAuditEntry(db, tagSetRow.id, { actor: owner.actor, surface: "admin_ui" });
+
+      const rows = await db.select().from(itemTags).where(eq(itemTags.itemId, item.id));
+      expect(rows).toHaveLength(0); // reverted back to the empty baseline
     });
   });
 });

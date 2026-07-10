@@ -387,27 +387,43 @@ export async function deleteItemPriceVariant(
   await bumpAffectedScreens(db, { itemIds: [before.itemId] });
 }
 
+/** Replaces `itemId`'s full tag membership with `tagIds`, the same
+ * delete-all-then-reinsert diff `setItemTags`'s own write uses. Shared by
+ * the revert handler below so a `set_item_tags` audit row's `before.tagIds`
+ * shape genuinely restores `item_tags` membership on revert, instead of
+ * silently no-op'ing. */
+async function restoreItemTagMembership(db: DbClient, itemId: string, tagIds: string[]): Promise<void> {
+  await db.delete(itemTags).where(eq(itemTags.itemId, itemId));
+  if (tagIds.length > 0) {
+    await db.insert(itemTags).values(tagIds.map((tagId) => ({ itemId, tagId })));
+  }
+}
+
+/** Distinguishes a `set_item_tags` audit row's `{ tagIds }` before-shape
+ * from a real `items` row snapshot — `items` rows never carry a `tagIds`
+ * field (tag membership lives in the separate `item_tags` table). */
+function isTagSetShape(value: unknown): value is { tagIds: string[] } {
+  return !!value && typeof value === "object" && Array.isArray((value as Record<string, unknown>).tagIds);
+}
+
 // --- Revert registration ----------------------------------------------
 //
 // `before === null` => the audited mutation was a create, so revert deletes
-// the row. Otherwise upsert the full `before` row back by id (covers
-// update/delete/availability/featured-slot/tag-set-adjacent item field
-// changes — tag-set membership itself is captured separately in the audit
-// row's `before.tagIds` and is not restored by this generic handler, which
-// only owns the `items` table row).
+// the row. `before` shaped `{ tagIds }` => the audited mutation was a
+// `set_item_tags` call, so revert restores `item_tags` membership instead of
+// touching the `items` row. Otherwise upsert the full `before` row back by
+// id (covers update/delete/availability/featured-slot item field changes).
 registerRevertHandler("item", async (db, ctx) => {
   if (!ctx.entityId) throw new ConflictError("item revert requires an entity_id");
   if (ctx.before === null || ctx.before === undefined) {
     await db.delete(items).where(eq(items.id, ctx.entityId));
     return;
   }
-  const rawBeforeRow = ctx.before as Item;
-  if ("tagIds" in (rawBeforeRow as unknown as Record<string, unknown>)) {
-    // This audit row was a set_item_tags mutation, not a row-level change —
-    // nothing to restore on the `items` table itself.
+  if (isTagSetShape(ctx.before)) {
+    await restoreItemTagMembership(db, ctx.entityId, ctx.before.tagIds);
     return;
   }
-  const beforeRow = reviveDates(rawBeforeRow, ["createdAt", "updatedAt"]);
+  const beforeRow = reviveDates(ctx.before as Item, ["createdAt", "updatedAt"]);
   const existing = await db.select({ id: items.id }).from(items).where(eq(items.id, ctx.entityId));
   if (existing.length === 0) {
     await db.insert(items).values(beforeRow);

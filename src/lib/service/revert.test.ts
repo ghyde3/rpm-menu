@@ -88,7 +88,7 @@ describe("revert service", () => {
       expect(rows).toHaveLength(0);
     });
 
-    it("restores item_tags membership when reverting a set_item_tags change (the shape items.ts's generic handler no-ops on)", async () => {
+    it("restores item_tags membership when reverting a set_item_tags change (items.ts's registered handler genuinely restores it, not a no-op)", async () => {
       const category = await seedCategory(db);
       const tag = await createTag(db, owner, { name: "spicy", visibility: "public" });
       const item = await createItem(db, owner, { name: "Buffalo Wings", categoryId: category.id });
@@ -101,6 +101,27 @@ describe("revert service", () => {
 
       const rows = await db.select().from(itemTags).where(eq(itemTags.itemId, item.id));
       expect(rows).toHaveLength(0);
+    });
+
+    it("restores the exact prior tag set (not just empties it) when reverting a second set_item_tags change", async () => {
+      const category = await seedCategory(db);
+      const tagA = await createTag(db, owner, { name: "gluten-free-salad", visibility: "public" });
+      const tagB = await createTag(db, owner, { name: "vegan-salad", visibility: "public" });
+      const item = await createItem(db, owner, { name: "Garden Salad", categoryId: category.id });
+
+      await setItemTags(db, owner, item.id, { tagIds: [tagA.id] });
+      await setItemTags(db, owner, item.id, { tagIds: [tagA.id, tagB.id] });
+
+      const changes = await listRecentChanges(db, owner, { entityType: "item" });
+      const secondTagEntry = changes.find(
+        (c) => c.action === "set_item_tags" && c.entityId === item.id && (c.before as { tagIds: string[] }).tagIds.length === 1,
+      )!;
+      expect(secondTagEntry).toBeTruthy();
+
+      await revertChange(db, staff, secondTagEntry.id);
+
+      const rows = await db.select({ tagId: itemTags.tagId }).from(itemTags).where(eq(itemTags.itemId, item.id));
+      expect(rows.map((r) => r.tagId).sort()).toEqual([tagA.id]);
     });
 
     it("gates category reverts as staff-or-owner", async () => {
