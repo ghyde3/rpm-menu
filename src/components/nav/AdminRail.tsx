@@ -12,7 +12,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { PanelLeftClose, PanelLeft, LogOut } from "lucide-react";
+import { PanelLeftClose, PanelLeft, LogOut, HelpCircle } from "lucide-react";
 import { ADMIN_NAV_ITEMS } from "./admin-nav";
 import { authClient } from "@/lib/auth/client";
 import { Button } from "@/components/ds";
@@ -314,6 +314,31 @@ export function AdminRail({ userName, userEmail, userRole, children }: AdminRail
               gap: "var(--sp-2)",
             }}
           >
+            <Link
+              href="/docs"
+              className="admin-rail-item"
+              title="Help"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--sp-3)",
+                padding: "10px var(--sp-3)",
+                marginBottom: 2,
+                borderRadius: "var(--radius-sm)",
+                borderLeft: "3px solid transparent",
+                fontFamily: "var(--font-heading)",
+                fontSize: 14,
+                fontWeight: 500,
+                color: "var(--text-secondary)",
+                textDecoration: "none",
+              }}
+            >
+              <HelpCircle size={18} style={{ flexShrink: 0 }} aria-hidden="true" />
+              <span className="admin-rail-label" style={{ whiteSpace: "nowrap", overflow: "hidden" }}>
+                Help
+              </span>
+            </Link>
+
             <div
               className="admin-rail-account"
               title={userName + " · " + userRole}
