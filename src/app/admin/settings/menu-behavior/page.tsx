@@ -59,7 +59,7 @@ export default async function MenuBehaviorSettingsPage() {
             </p>
           </div>
           <Link
-            href="/admin/settings/menu-behavior/qr"
+            href="/admin/settings/qr"
             style={{
               fontFamily: "var(--font-heading)",
               textTransform: "uppercase",
