@@ -15,6 +15,10 @@ import "@/lib/service/tags";
 import "@/lib/service/modifiers";
 import "@/lib/service/users";
 import "@/lib/service/settings/venue";
+import "@/lib/service/screens";
+import "@/lib/service/displays";
+import "@/lib/service/schedules";
+import "@/lib/service/settings/api-keys";
 
 import { desc, eq, inArray } from "drizzle-orm";
 import { auditLog, itemTags, users, type ActorType, type EntityType } from "@/db/schema";

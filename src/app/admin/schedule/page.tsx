@@ -1,9 +1,11 @@
-import { PlaceholderSection } from "@/components/nav/PlaceholderSection";
+import { redirect } from "next/navigation";
 
-// Not yet claimed by a feature unit's owns_paths — the weekly schedule
-// editor currently lives conceptually under Settings > Displays (owned by
-// the displays unit). Flagged for the orchestrator: point this nav entry
-// wherever the schedule editor actually lands, or build it here directly.
+// The weekly display-schedule editor lives inside Settings > Displays
+// (§3.2a/§3.8 — schedules are per-display, and Displays is already the
+// owner-only settings tab that manages pairing/revoke/reassignment for the
+// same entities). This nav entry was flagged in docs/architecture.md as
+// unowned with instructions to "point elsewhere or claim directly" — this
+// unit claims it and redirects rather than duplicating the editor UI.
 export default function SchedulePage() {
-  return <PlaceholderSection title="Schedule" />;
+  redirect("/admin/settings/displays");
 }
