@@ -50,6 +50,19 @@ describe("categories + tags services", () => {
     await deleteTag(db, owner, tag.id);
   });
 
+  // Regression test for the Zod v4 `.partial()` + `.default(...)` silent-
+  // reset bug (screens.ts's `updateScreenSchema` block comment): a partial
+  // `updateTag` call must never reset `visibility` back to its create-time
+  // default ("private") just because the caller didn't mention it.
+  it("preserves non-default visibility on a partial updateTag call", async () => {
+    const tag = await createTag(db, owner, { name: "staff-pick", visibility: "public" });
+    expect(tag.visibility).toBe("public");
+
+    const updated = await updateTag(db, owner, tag.id, { color: "#123456" });
+    expect(updated.color).toBe("#123456");
+    expect(updated.visibility).toBe("public");
+  });
+
   it("refuses staff from creating, editing, or deleting a tag (visibility is owner-managed)", async () => {
     const staff: ServiceCaller = {
       actor: { type: "user", id: "00000000-0000-0000-0000-0000000000ee" },

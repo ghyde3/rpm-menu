@@ -27,5 +27,18 @@ export const createCategorySchema = z.object({
 });
 export type CreateCategoryInput = z.input<typeof createCategorySchema>;
 
-export const updateCategorySchema = createCategorySchema.partial();
+/**
+ * Deliberately NOT `createCategorySchema.partial()` — see validation/
+ * screens.ts's `updateScreenSchema` block comment for why `.partial()`
+ * doesn't neutralize a `.default(...)` field. `sortOrder`/`displayConfig`
+ * are spelled out as plain `.optional()` here instead.
+ */
+export const updateCategorySchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  type: z.enum(categoryTypeEnum).optional(),
+  sortOrder: z.number().int().optional(),
+  displayConfig: categoryDisplayConfigSchema.optional(),
+  tagline: z.string().max(200).nullable().optional(),
+  imageId: uuidSchema.nullable().optional(),
+});
 export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;

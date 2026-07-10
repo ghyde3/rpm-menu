@@ -13,7 +13,20 @@ export const createModifierGroupSchema = z.object({
 });
 export type CreateModifierGroupInput = z.input<typeof createModifierGroupSchema>;
 
-export const updateModifierGroupSchema = createModifierGroupSchema.partial();
+/**
+ * Deliberately NOT `createModifierGroupSchema.partial()` — see validation/
+ * screens.ts's `updateScreenSchema` block comment for why `.partial()`
+ * doesn't neutralize a `.default(...)` field. `minSelect`/`isRequired`/
+ * `sortOrder` are spelled out as plain `.optional()` here instead.
+ */
+export const updateModifierGroupSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  selectionType: z.enum(modifierSelectionTypeEnum).optional(),
+  minSelect: z.number().int().min(0).optional(),
+  maxSelect: z.number().int().min(1).nullable().optional(),
+  isRequired: z.boolean().optional(),
+  sortOrder: z.number().int().optional(),
+});
 export type UpdateModifierGroupInput = z.infer<typeof updateModifierGroupSchema>;
 
 /** Creation only accepts `pricing_mode = 'included' | 'ambiguous'` directly

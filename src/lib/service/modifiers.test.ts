@@ -5,6 +5,7 @@ import { categories } from "@/db/schema";
 import { createItem } from "./items";
 import {
   createModifierGroup,
+  updateModifierGroup,
   createModifierOption,
   resolveModifierOptionPricing,
   createModifierGroupAttachment,
@@ -69,6 +70,30 @@ describe("modifiers service", () => {
         replacementPriceCents: resolved.replacementPriceCents,
       }),
     ).toBe("$10.63");
+  });
+
+  // Regression test for the Zod v4 `.partial()` + `.default(...)` silent-
+  // reset bug (screens.ts's `updateScreenSchema` block comment): a partial
+  // `updateModifierGroup` call must never reset `minSelect`/`isRequired`/
+  // `sortOrder` back to their create-time defaults just because the caller
+  // didn't mention them.
+  it("preserves non-default minSelect/isRequired/sortOrder on a partial updateModifierGroup call", async () => {
+    const group = await createModifierGroup(db, owner, {
+      name: "Choose your sides",
+      selectionType: "multiple",
+      minSelect: 2,
+      isRequired: true,
+      sortOrder: 3,
+    });
+    expect(group.minSelect).toBe(2);
+    expect(group.isRequired).toBe(true);
+    expect(group.sortOrder).toBe(3);
+
+    const updated = await updateModifierGroup(db, owner, group.id, { name: "Pick your sides" });
+    expect(updated.name).toBe("Pick your sides");
+    expect(updated.minSelect).toBe(2);
+    expect(updated.isRequired).toBe(true);
+    expect(updated.sortOrder).toBe(3);
   });
 
   it("attaches a group to a category (fan-out) and to a single item, enforcing exactly one of the two", async () => {

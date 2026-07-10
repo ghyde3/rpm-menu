@@ -61,6 +61,33 @@ describe("items service", () => {
     expect(rows).toHaveLength(0);
   });
 
+  // Regression test for the Zod v4 `.partial()` + `.default(...)` silent-
+  // reset bug (screens.ts's `updateScreenSchema` block comment): a partial
+  // `updateItem` call must never reset a non-defaulted-away field it didn't
+  // mention.
+  it("preserves non-default sortOrder/aliases/isAvailable/attributes on a partial update", async () => {
+    const category = await seedCategory(db);
+    const created = await createItem(db, owner, {
+      name: "Barrel-Aged Stout",
+      categoryId: category.id,
+      sortOrder: 5,
+      aliases: ["x"],
+      isAvailable: false,
+      attributes: { abv: 5 },
+    });
+    expect(created.sortOrder).toBe(5);
+    expect(created.aliases).toEqual(["x"]);
+    expect(created.isAvailable).toBe(false);
+    expect(created.attributes).toEqual({ abv: 5 });
+
+    const updated = await updateItem(db, owner, created.id, { name: "Renamed" });
+    expect(updated.name).toBe("Renamed");
+    expect(updated.sortOrder).toBe(5);
+    expect(updated.aliases).toEqual(["x"]);
+    expect(updated.isAvailable).toBe(false);
+    expect(updated.attributes).toEqual({ abv: 5 });
+  });
+
   it("rejects a mutation from a non-staff/owner user actor", async () => {
     const category = await seedCategory(db);
     const noRole: ServiceCaller = {

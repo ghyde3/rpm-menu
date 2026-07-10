@@ -37,7 +37,25 @@ export const createItemSchema = z.object({
 });
 export type CreateItemInput = z.input<typeof createItemSchema>;
 
-export const updateItemSchema = createItemSchema.partial();
+/**
+ * Deliberately NOT `createItemSchema.partial()` — see validation/screens.ts's
+ * `updateScreenSchema` block comment for the full Zod v4 `.partial()` +
+ * `.default(...)` silent-reset bug writeup. Every field here is spelled out
+ * as plain `.optional()` (no `.default(...)`) so an absent key means "leave
+ * unchanged," not "reset to the create-time default."
+ */
+export const updateItemSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().max(4000).nullable().optional(),
+  priceCents: nullableCentsSchema.optional(),
+  pricingType: z.enum(pricingTypeEnum).optional(),
+  categoryId: uuidSchema.optional(),
+  isAvailable: z.boolean().optional(),
+  sortOrder: z.number().int().optional(),
+  imageId: uuidSchema.nullable().optional(),
+  aliases: z.array(z.string().min(1).max(200)).optional(),
+  attributes: itemAttributesSchema.optional(),
+});
 export type UpdateItemInput = z.infer<typeof updateItemSchema>;
 
 export const setItemAvailabilitySchema = z.object({
@@ -64,7 +82,16 @@ export const createItemPriceVariantSchema = z.object({
 });
 export type CreateItemPriceVariantInput = z.input<typeof createItemPriceVariantSchema>;
 
-export const updateItemPriceVariantSchema = createItemPriceVariantSchema
-  .omit({ itemId: true })
-  .partial();
+/**
+ * Deliberately NOT `createItemPriceVariantSchema.omit({ itemId: true }).partial()`
+ * — see validation/screens.ts's `updateScreenSchema` block comment for why
+ * `.partial()` doesn't neutralize a `.default(...)` field. `sortOrder`/`kind`
+ * are spelled out as plain `.optional()` here instead.
+ */
+export const updateItemPriceVariantSchema = z.object({
+  label: z.string().min(1).max(100).optional(),
+  priceCents: nullableCentsSchema.refine((v) => v !== null, "priceCents is required for a variant").optional(),
+  sortOrder: z.number().int().optional(),
+  kind: z.enum(priceVariantKindEnum).optional(),
+});
 export type UpdateItemPriceVariantInput = z.infer<typeof updateItemPriceVariantSchema>;
