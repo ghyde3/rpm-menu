@@ -87,10 +87,12 @@ export interface PublicMenuTag {
 
 /** One additional (non-hero) gallery photo, sized for a small thumbnail
  * strip (`thumbUrl`) with a full-size `url` to promote into the hero slot
- * when a visitor picks it (src/app/menu/ItemGallery.tsx). */
+ * when a visitor picks it (src/app/menu/ItemGallery.tsx), plus the largest
+ * `displayUrl` (~1920w) variant the full-screen lightbox opens. */
 export interface PublicMenuGalleryPhoto {
   url: string;
   thumbUrl: string;
+  displayUrl: string;
 }
 
 export interface PublicMenuItem {
@@ -113,6 +115,10 @@ export interface PublicMenuItem {
   note: string | undefined;
   isAvailable: boolean;
   imageUrl: string | null;
+  /** Largest (~1920w) variant of the hero photo, opened by the full-screen
+   * lightbox (src/app/menu/ImageLightbox.tsx). `null` whenever `imageUrl`
+   * is — both are `showImages`-gated together. */
+  imageDisplayUrl: string | null;
   /** Additional (non-primary) gallery photos, ordered per the admin's
    * chosen sort order, `[]` when the item has zero or one photo total
    * (matches `imageUrl` — both are `showImages`-gated and both empty for
@@ -176,6 +182,14 @@ function pickImageUrl(variants: ImageVariants | null | undefined): string | null
 function pickThumbUrl(variants: ImageVariants | null | undefined): string | null {
   if (!variants) return null;
   return variants.thumb ?? variants.card ?? variants.display ?? Object.values(variants).find(Boolean) ?? null;
+}
+
+/** Largest available variant, preferred for the full-screen lightbox
+ * (src/app/menu/ImageLightbox.tsx) — `display` (~1920w) first, falling
+ * back down the ladder for older images processed before it existed. */
+function pickDisplayUrl(variants: ImageVariants | null | undefined): string | null {
+  if (!variants) return null;
+  return variants.display ?? variants.card ?? variants.thumb ?? Object.values(variants).find(Boolean) ?? null;
 }
 
 function resolveImageUrl(imageId: string | null, urlById: Map<string, string | null>): string | null {
@@ -270,6 +284,7 @@ export async function getPublicMenu(db: DbClient): Promise<PublicMenuData> {
     ? await db.select().from(images).where(inArray(images.id, referencedImageIds))
     : [];
   const imageUrlById = new Map(imageRows.map((img) => [img.id, pickImageUrl(img.variants)]));
+  const imageDisplayUrlById = new Map(imageRows.map((img) => [img.id, pickDisplayUrl(img.variants)]));
 
   // Batch, N+1-safe gallery read (src/lib/service/item-images.ts) — one
   // join query for every item's photos, keyed by itemId.
@@ -309,6 +324,7 @@ export async function getPublicMenu(db: DbClient): Promise<PublicMenuData> {
       unavailableTreatment,
       showTrailingZeros,
       imageUrlById,
+      imageDisplayUrlById,
       publicTagsByItem,
       sizeVariantsByItem,
       galleryByItem,
@@ -350,6 +366,7 @@ interface CategoryBuildContext {
   unavailableTreatment: "hide" | "badge";
   showTrailingZeros: boolean;
   imageUrlById: Map<string, string | null>;
+  imageDisplayUrlById: Map<string, string | null>;
   publicTagsByItem: Map<string, PublicMenuTag[]>;
   sizeVariantsByItem: Map<string, ItemPriceVariant[]>;
   galleryByItem: Map<string, ItemImageGalleryEntry[]>;
@@ -363,7 +380,11 @@ interface CategoryBuildContext {
 function buildGalleryPhotos(entries: ItemImageGalleryEntry[]): PublicMenuGalleryPhoto[] {
   return entries
     .filter((entry) => !entry.isPrimary)
-    .map((entry) => ({ url: pickImageUrl(entry.variants) ?? "", thumbUrl: pickThumbUrl(entry.variants) ?? "" }))
+    .map((entry) => ({
+      url: pickImageUrl(entry.variants) ?? "",
+      thumbUrl: pickThumbUrl(entry.variants) ?? "",
+      displayUrl: pickDisplayUrl(entry.variants) ?? "",
+    }))
     .filter((photo) => photo.url && photo.thumbUrl);
 }
 
@@ -396,6 +417,7 @@ function buildPublicCategory(
       note,
       isAvailable: item.isAvailable,
       imageUrl: ctx.showImages ? resolveImageUrl(item.imageId, ctx.imageUrlById) : null,
+      imageDisplayUrl: ctx.showImages ? resolveImageUrl(item.imageId, ctx.imageDisplayUrlById) : null,
       gallery: ctx.showImages ? buildGalleryPhotos(ctx.galleryByItem.get(item.id) ?? []) : [],
       tags: tagsForItem,
       featuredSlotKey: item.featuredSlotKey,

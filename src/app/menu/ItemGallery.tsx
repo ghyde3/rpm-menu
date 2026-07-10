@@ -1,59 +1,70 @@
 "use client";
 
 // Lightweight, accessible multi-photo gallery for a single public-menu item
-// (M4 addendum): a prominent hero image with an optional small thumbnail
-// strip of additional photos beneath it. No external carousel library and
-// no data fetching of its own — MenuBoard.tsx (already a Client Component)
-// passes in exactly the URLs src/lib/menu/public-query.ts resolved
-// server-side. The only client state is which photo is currently promoted
-// into the hero slot; everything else stays pure markup, so this stays
-// cheap even on a board with many items.
+// (M4 addendum + mobile-polish M3/M4): a prominent hero image with an optional
+// small thumbnail strip of additional photos beneath it. No external carousel
+// library and no data fetching of its own — MenuBoard.tsx (already a Client
+// Component) passes in exactly the URLs src/lib/menu/public-query.ts resolved
+// server-side. Tapping the hero or any thumbnail opens the full-screen
+// ImageLightbox; the only client state here is which lightbox photo is open.
 import * as React from "react";
 import Image from "next/image";
 import type { PublicMenuGalleryPhoto } from "@/lib/menu/public-query";
+import { ImageLightbox } from "./ImageLightbox";
 
-const HERO_SIZE = 84;
-const THUMB_SIZE = 22;
+// Deliberately larger than the pre-polish 84/22 so the row reads well at
+// ~375px and the hero is a comfortable tap target.
+const HERO_SIZE = 120;
+const THUMB_SIZE = 34;
 
 export interface ItemGalleryProps {
   /** Card/display-sized hero URL — always item.imageUrl (the primary photo). */
   heroUrl: string;
-  /** Additional, non-primary photos (already thumb+full URL pairs). */
+  /** Largest ("display") variant of the hero, for the lightbox. */
+  heroDisplayUrl?: string | null;
+  /** Additional, non-primary photos (already thumb+full+display URL sets). */
   photos: PublicMenuGalleryPhoto[];
-  /** Used for alt text; not shown. */
+  /** Used for alt text + the lightbox dialog label. */
   itemName: string;
 }
 
-/** Renders the always-present hero image plus, only when there's more than
- * one photo total, a small scrollable strip of the rest — clicking a
- * thumbnail promotes it into the hero slot so a visitor can flip through
- * every photo without leaving the board (a plain `useState` swap, not a
- * timed/animated carousel). */
-export function ItemGallery({ heroUrl, photos, itemName }: ItemGalleryProps) {
-  // [url, thumbUrl][] — the hero itself has no separate thumb variant on
-  // hand here, so it reuses heroUrl for both; only matters if it's ever
-  // swapped into the strip below.
+/** Renders the always-present hero image plus, only when there's more than one
+ * photo total, a small scrollable strip of the rest. Tapping any photo opens
+ * the full-screen lightbox at that photo, from which the visitor can page
+ * through the whole set. */
+export function ItemGallery({ heroUrl, heroDisplayUrl, photos, itemName }: ItemGalleryProps) {
+  // The hero has no separate thumb variant on hand here, so it reuses heroUrl
+  // for the strip thumb; its lightbox photo prefers the display variant.
   const all = React.useMemo(
-    () => [{ url: heroUrl, thumbUrl: heroUrl }, ...photos],
-    [heroUrl, photos],
+    () => [
+      { thumbUrl: heroUrl, displayUrl: heroDisplayUrl || heroUrl },
+      ...photos.map((p) => ({ thumbUrl: p.thumbUrl, displayUrl: p.displayUrl || p.url })),
+    ],
+    [heroUrl, heroDisplayUrl, photos],
   );
-  const [active, setActive] = React.useState(0);
-  const hero = all[active] ?? all[0];
+  const [lightboxIndex, setLightboxIndex] = React.useState<number | null>(null);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-1)", flexShrink: 0 }}>
-      <div
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-2)", flexShrink: 0 }}>
+      <button
+        type="button"
+        onClick={() => setLightboxIndex(0)}
+        aria-label={`View photo of ${itemName}`}
+        aria-haspopup="dialog"
         style={{
           position: "relative",
           width: HERO_SIZE,
           height: HERO_SIZE,
+          padding: 0,
           borderRadius: "var(--radius-sm)",
           overflow: "hidden",
+          cursor: "pointer",
           border: "var(--bw-hair) solid var(--border-hairline)",
+          background: "none",
         }}
       >
-        <Image src={hero.url} alt={itemName} fill sizes={`${HERO_SIZE}px`} style={{ objectFit: "cover" }} />
-      </div>
+        <Image src={heroUrl} alt={itemName} fill sizes={`${HERO_SIZE}px`} style={{ objectFit: "cover" }} />
+      </button>
 
       {all.length > 1 && (
         <div
@@ -70,9 +81,9 @@ export function ItemGallery({ heroUrl, photos, itemName }: ItemGalleryProps) {
             <button
               key={photo.thumbUrl + i}
               type="button"
-              onClick={() => setActive(i)}
-              aria-label={`Show photo ${i + 1} of ${all.length} for ${itemName}`}
-              aria-current={i === active}
+              onClick={() => setLightboxIndex(i)}
+              aria-label={`View photo ${i + 1} of ${all.length} for ${itemName}`}
+              aria-haspopup="dialog"
               style={{
                 position: "relative",
                 flexShrink: 0,
@@ -82,10 +93,7 @@ export function ItemGallery({ heroUrl, photos, itemName }: ItemGalleryProps) {
                 borderRadius: "var(--radius-sm)",
                 overflow: "hidden",
                 cursor: "pointer",
-                border:
-                  i === active
-                    ? "2px solid var(--accent-primary)"
-                    : "var(--bw-hair) solid var(--border-hairline)",
+                border: "var(--bw-hair) solid var(--border-hairline)",
                 background: "none",
               }}
             >
@@ -94,6 +102,14 @@ export function ItemGallery({ heroUrl, photos, itemName }: ItemGalleryProps) {
           ))}
         </div>
       )}
+
+      <ImageLightbox
+        photos={all}
+        index={lightboxIndex}
+        onClose={() => setLightboxIndex(null)}
+        onIndexChange={setLightboxIndex}
+        itemName={itemName}
+      />
     </div>
   );
 }

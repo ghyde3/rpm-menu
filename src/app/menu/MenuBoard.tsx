@@ -39,6 +39,7 @@ export function MenuBoard({ data }: MenuBoardProps) {
   const { venue, categories } = data;
   const [query, setQuery] = React.useState("");
   const [active, setActive] = React.useState(categories[0]?.id ?? null);
+  const [navOpen, setNavOpen] = React.useState(false);
   const sectionRefs = React.useRef<Record<string, HTMLElement | null>>({});
 
   const visibleCategories = React.useMemo(
@@ -49,8 +50,38 @@ export function MenuBoard({ data }: MenuBoardProps) {
     [categories, query],
   );
 
+  const visibleIds = React.useMemo(() => visibleCategories.map((c) => c.id), [visibleCategories]);
+
+  // Scroll-spy: keep the "active category" highlight in sync as the visitor
+  // scrolls, not just on click. The rootMargin pins the trigger line just
+  // below the sticky header so a section lights up as its heading reaches the
+  // top band of the viewport; the topmost intersecting section wins.
+  React.useEffect(() => {
+    if (visibleIds.length === 0) return;
+    const visible = new Set<string>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const id = entry.target.getAttribute("data-category-id");
+          if (!id) continue;
+          if (entry.isIntersecting) visible.add(id);
+          else visible.delete(id);
+        }
+        const topmost = visibleIds.find((id) => visible.has(id));
+        if (topmost) setActive(topmost);
+      },
+      { rootMargin: "-180px 0px -60% 0px", threshold: 0 },
+    );
+    for (const id of visibleIds) {
+      const el = sectionRefs.current[id];
+      if (el) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, [visibleIds]);
+
   function scrollToCategory(id: string) {
     setActive(id);
+    setNavOpen(false);
     sectionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -122,76 +153,77 @@ export function MenuBoard({ data }: MenuBoardProps) {
           )}
         </div>
 
-        <div
-          style={{
-            marginTop: "var(--sp-4)",
-            display: "flex",
-            alignItems: "center",
-            gap: "var(--sp-2)",
-            background: "var(--surface-inset)",
-            border: "var(--bw) solid var(--border-strong)",
-            borderRadius: "var(--radius-sm)",
-            padding: "0 var(--sp-3)",
-            height: "var(--tap-target)",
-          }}
-        >
-          <span aria-hidden="true" style={{ color: "var(--text-faint)", fontSize: 14 }}>
-            ⌕
-          </span>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search the board…"
-            aria-label="Search the menu"
+        <div style={{ marginTop: "var(--sp-4)", display: "flex", alignItems: "center", gap: "var(--sp-2)" }}>
+          <button
+            type="button"
+            onClick={() => setNavOpen(true)}
+            aria-label="Browse menu categories"
+            aria-haspopup="dialog"
+            aria-expanded={navOpen}
+            aria-controls="menu-category-drawer"
+            style={{
+              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "var(--tap-target)",
+              height: "var(--tap-target)",
+              fontSize: 20,
+              lineHeight: 1,
+              cursor: "pointer",
+              color: "var(--text-primary)",
+              background: "var(--surface-inset)",
+              border: "var(--bw) solid var(--border-strong)",
+              borderRadius: "var(--radius-sm)",
+            }}
+          >
+            <span aria-hidden="true">☰</span>
+          </button>
+
+          <div
             style={{
               flex: 1,
-              height: "100%",
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              color: "var(--text-primary)",
-              fontFamily: "var(--font-body)",
-              fontSize: "var(--fs-body-sm)",
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--sp-2)",
+              background: "var(--surface-inset)",
+              border: "var(--bw) solid var(--border-strong)",
+              borderRadius: "var(--radius-sm)",
+              padding: "0 var(--sp-3)",
+              height: "var(--tap-target)",
             }}
-          />
-        </div>
-
-        <nav
-          aria-label="Menu categories"
-          style={{
-            marginTop: "var(--sp-3)",
-            display: "flex",
-            gap: "var(--sp-2)",
-            overflowX: "auto",
-            paddingBottom: 2,
-          }}
-        >
-          {visibleCategories.map((category) => (
-            <button
-              key={category.id}
-              type="button"
-              onClick={() => scrollToCategory(category.id)}
+          >
+            <span aria-hidden="true" style={{ color: "var(--text-faint)", fontSize: 14 }}>
+              ⌕
+            </span>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search the board…"
+              aria-label="Search the menu"
               style={{
-                flexShrink: 0,
-                cursor: "pointer",
-                fontFamily: "var(--font-heading)",
-                fontWeight: 600,
-                fontSize: "0.75rem",
-                textTransform: "uppercase",
-                letterSpacing: "var(--ls-caps)",
-                padding: "7px 12px",
-                borderRadius: "var(--radius-sm)",
-                border: `var(--bw) solid ${active === category.id ? "var(--accent-primary)" : "var(--border-strong)"}`,
-                background: active === category.id ? "var(--accent-primary)" : "transparent",
-                color: active === category.id ? "#fff" : "var(--text-secondary)",
-                transition: "all var(--dur) var(--ease)",
+                flex: 1,
+                minWidth: 0,
+                height: "100%",
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                color: "var(--text-primary)",
+                fontFamily: "var(--font-body)",
+                fontSize: "var(--fs-body-sm)",
               }}
-            >
-              {category.name}
-            </button>
-          ))}
-        </nav>
+            />
+          </div>
+        </div>
       </header>
+
+      <CategoryDrawer
+        open={navOpen}
+        categories={visibleCategories}
+        active={active}
+        onSelect={scrollToCategory}
+        onClose={() => setNavOpen(false)}
+      />
 
       <main
         style={{
@@ -232,6 +264,175 @@ export function MenuBoard({ data }: MenuBoardProps) {
   );
 }
 
+/** Slide-in category drawer (mobile-polish M5). A hamburger in the sticky
+ * header opens it; tapping a category smooth-scrolls to that section and
+ * closes the drawer, and the scroll-spy `active` highlight is mirrored here.
+ * Accessible: role="dialog" + aria-modal, focus moves in on open and returns
+ * to the opener on close, Escape and a backdrop click close it, and
+ * background scroll is locked while open. */
+function CategoryDrawer({
+  open,
+  categories,
+  active,
+  onSelect,
+  onClose,
+}: {
+  open: boolean;
+  categories: PublicMenuCategory[];
+  active: string | null;
+  onSelect: (id: string) => void;
+  onClose: () => void;
+}) {
+  const panelRef = React.useRef<HTMLDivElement | null>(null);
+  const firstItemRef = React.useRef<HTMLButtonElement | null>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    firstItemRef.current?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === "Tab") {
+        // Minimal focus trap: keep Tab inside the panel's controls.
+        const focusables = panelRef.current?.querySelectorAll<HTMLElement>("button");
+        if (!focusables || focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = prevOverflow;
+      previouslyFocused?.focus?.();
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 40,
+        background: "rgba(9,8,7,0.6)",
+        backdropFilter: "blur(2px)",
+      }}
+    >
+      <div
+        id="menu-category-drawer"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu categories"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: "min(78vw, 20rem)",
+          display: "flex",
+          flexDirection: "column",
+          background: "var(--surface-raised)",
+          borderRight: "var(--bw) solid var(--border-strong)",
+          boxShadow: "var(--shadow-lift)",
+          padding: "var(--sp-5) var(--sp-4)",
+          overflowY: "auto",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "var(--sp-4)",
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "var(--font-heading)",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "var(--ls-caps)",
+              fontSize: "var(--fs-caption)",
+              color: "var(--accent-secondary)",
+            }}
+          >
+            Categories
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close categories"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "var(--tap-target)",
+              height: "var(--tap-target)",
+              fontSize: "1.5rem",
+              lineHeight: 1,
+              cursor: "pointer",
+              color: "var(--text-primary)",
+              background: "var(--surface-inset)",
+              border: "var(--bw) solid var(--border-strong)",
+              borderRadius: "var(--radius-sm)",
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <nav aria-label="Menu categories" style={{ display: "flex", flexDirection: "column", gap: "var(--sp-2)" }}>
+          {categories.map((category, i) => (
+            <button
+              key={category.id}
+              ref={i === 0 ? firstItemRef : undefined}
+              type="button"
+              onClick={() => onSelect(category.id)}
+              aria-current={active === category.id ? "true" : undefined}
+              style={{
+                textAlign: "left",
+                cursor: "pointer",
+                fontFamily: "var(--font-heading)",
+                fontWeight: 600,
+                fontSize: "var(--fs-body-sm)",
+                textTransform: "uppercase",
+                letterSpacing: "var(--ls-caps)",
+                padding: "var(--sp-3) var(--sp-3)",
+                borderRadius: "var(--radius-sm)",
+                border: `var(--bw) solid ${active === category.id ? "var(--accent-primary)" : "var(--border-strong)"}`,
+                background: active === category.id ? "var(--accent-primary)" : "transparent",
+                color: active === category.id ? "#fff" : "var(--text-secondary)",
+                transition: "all var(--dur) var(--ease)",
+              }}
+            >
+              {category.name}
+            </button>
+          ))}
+        </nav>
+      </div>
+    </div>
+  );
+}
+
 function CategorySection({
   category,
   color,
@@ -242,7 +443,11 @@ function CategorySection({
   registerRef: (el: HTMLElement | null) => void;
 }) {
   return (
-    <section ref={registerRef} style={{ paddingTop: "var(--sp-7)", scrollMarginTop: 180 }}>
+    <section
+      ref={registerRef}
+      data-category-id={category.id}
+      style={{ paddingTop: "var(--sp-7)", scrollMarginTop: 180 }}
+    >
       {category.imageUrl && (
         <div
           style={{
@@ -264,7 +469,18 @@ function CategorySection({
           />
         </div>
       )}
-      <MenuSection title={category.name} color={color} stars intro={category.tagline ?? undefined}>
+      {/* headerSize="md" (fs-h3) matches the design system's own MobileMenu
+          reference — the default "lg" (fs-h2, 48px) Anton caps overrun the
+          ~375px phone viewport (long section names like "SANDWICHES" bleed
+          their trailing star off-screen). Public-menu-only; the TV board
+          templates keep their large "xl" headers untouched. */}
+      <MenuSection
+        title={category.name}
+        color={color}
+        stars
+        intro={category.tagline ?? undefined}
+        headerSize="md"
+      >
         {category.items.map((item) => (
           <MenuBoardItem key={item.id} item={item} />
         ))}
@@ -292,6 +508,7 @@ function MenuBoardItem({ item }: { item: PublicMenuItem }) {
       note={note}
       tags={tags}
       available={item.isAvailable}
+      wrap
     />
   );
 
@@ -301,7 +518,12 @@ function MenuBoardItem({ item }: { item: PublicMenuItem }) {
 
   return (
     <div style={{ display: "flex", gap: "var(--sp-4)" }}>
-      <ItemGallery heroUrl={item.imageUrl} photos={item.gallery} itemName={item.name} />
+      <ItemGallery
+        heroUrl={item.imageUrl}
+        heroDisplayUrl={item.imageDisplayUrl}
+        photos={item.gallery}
+        itemName={item.name}
+      />
       <div style={{ flex: 1, minWidth: 0 }}>{row}</div>
     </div>
   );

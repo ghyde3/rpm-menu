@@ -26,6 +26,13 @@ export interface MenuItemProps {
   /** Dotted leader line between title and price. */
   leaders?: boolean;
   priceSize?: PriceSize;
+  /** Narrow-viewport layout (public web menu): the title wraps onto multiple
+   * lines instead of running off the edge, and the price sits top-aligned in
+   * a stable right-hand column so prices scan cleanly down the page. The
+   * dotted leader is dropped in this mode (it reads awkwardly against a
+   * wrapped, multi-line title). Defaults `false` — the TV board templates
+   * keep their single-line, dotted-leader look untouched. */
+  wrap?: boolean;
   style?: React.CSSProperties;
 }
 
@@ -38,11 +45,13 @@ export function MenuItem({
   available = true,
   leaders = true,
   priceSize = "md",
+  wrap = false,
   style,
 }: MenuItemProps) {
+  const showLeaders = leaders && !wrap;
   return (
     <div style={{ opacity: available ? 1 : 0.4, ...style }}>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--sp-2)" }}>
+      <div style={{ display: "flex", alignItems: wrap ? "flex-start" : "flex-end", gap: "var(--sp-2)" }}>
         <h3
           style={{
             fontFamily: "var(--font-heading)",
@@ -54,13 +63,17 @@ export function MenuItem({
             letterSpacing: "0.01em",
             color: "var(--accent-secondary)",
             margin: 0,
-            whiteSpace: "nowrap",
+            // Wrap mode: take the row's free space (pushing the price to a
+            // right column) and break long words rather than overflow.
+            ...(wrap
+              ? { flex: "1 1 auto", minWidth: 0, whiteSpace: "normal", overflowWrap: "anywhere" }
+              : { whiteSpace: "nowrap" }),
             textDecoration: available ? "none" : "line-through",
           }}
         >
           {name}
         </h3>
-        {leaders && (
+        {showLeaders && (
           <span
             aria-hidden="true"
             style={{
@@ -72,7 +85,13 @@ export function MenuItem({
           />
         )}
         {price !== undefined && (
-          <div style={{ marginBottom: "-0.06em" }}>
+          <div
+            style={
+              wrap
+                ? { flexShrink: 0, textAlign: "right", paddingTop: "0.1em" }
+                : { marginBottom: "-0.06em" }
+            }
+          >
             <PriceTag price={price} size={priceSize} />
           </div>
         )}
