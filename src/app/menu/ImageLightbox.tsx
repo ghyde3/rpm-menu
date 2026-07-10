@@ -14,6 +14,7 @@
 // open and returns to the trigger on close, Escape and the × button and a
 // backdrop click all close it, and background scroll is locked while open.
 import * as React from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 
 export interface LightboxPhoto {
@@ -85,11 +86,16 @@ export function ImageLightbox({ photos, index, onClose, onIndexChange, itemName 
     };
   }, [open, multiple, goPrev, goNext, onClose]);
 
-  if (index === null) return null;
+  // `index` is null during SSR and the first client render (it only becomes a
+  // number after a user taps a photo, post-hydration), so document.body is
+  // always available by the time we portal — no mismatch, no mounted flag.
+  if (index === null || typeof document === "undefined") return null;
   const photo = photos[index] ?? photos[0];
   if (!photo) return null;
 
-  return (
+  // Portal to <body> so the fixed overlay escapes <main>'s stacking context
+  // (z-index:1) and paints over the sticky <header> (z-index:3) as well.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -202,7 +208,8 @@ export function ImageLightbox({ photos, index, onClose, onIndexChange, itemName 
           </div>
         </>
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
