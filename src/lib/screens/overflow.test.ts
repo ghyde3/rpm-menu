@@ -88,4 +88,16 @@ describe("chunk", () => {
   it("handles an empty list", () => {
     expect(chunk([], 5)).toEqual([[]]);
   });
+
+  // Spotlight rotation invariant (useOverflowFit `{ itemsPerPage: 1 }`): a
+  // curated/matched list of ANY length becomes one page per item, in order,
+  // so the timer rotates through every featured item — no 4-item cap, and no
+  // dependence on container-height overflow. This is what makes a curated
+  // (manual) spotlight paginate through its whole list.
+  it("splits into one-item pages (spotlight rotation) for any length", () => {
+    expect(chunk(["a", "b", "c"], 1)).toEqual([["a"], ["b"], ["c"]]);
+    expect(chunk(["a", "b", "c", "d", "e"], 1)).toEqual([["a"], ["b"], ["c"], ["d"], ["e"]]);
+    // More than the old 4-item spotlight cap — every item still gets a page.
+    expect(chunk([1, 2, 3, 4, 5, 6], 1)).toHaveLength(6);
+  });
 });

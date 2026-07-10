@@ -37,14 +37,45 @@ export interface OverflowFitResult<T> {
   pageCount: number;
 }
 
-export function useOverflowFit<T>(items: T[], paginationIntervalSeconds: number): OverflowFitResult<T> {
+export interface OverflowFitOptions {
+  /**
+   * Force an exact page size instead of measuring how much fits. Used by the
+   * `spotlight` template, which shows one full-bleed featured item at a time
+   * and rotates through the whole (curated or matched) list on the timer —
+   * so it must paginate on *count*, not on container-height overflow. Without
+   * this, a spotlight on a large TV (where the content happens to fit) would
+   * never paginate and so never rotate. `undefined` = the normal
+   * measure-then-scale-then-paginate path (list/grid).
+   */
+  itemsPerPage?: number;
+}
+
+export function useOverflowFit<T>(
+  items: T[],
+  paginationIntervalSeconds: number,
+  options?: OverflowFitOptions,
+): OverflowFitResult<T> {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const measureRef = React.useRef<HTMLDivElement | null>(null);
-  const [scale, setScale] = React.useState(1);
-  const [pages, setPages] = React.useState<T[][]>([items]);
+  const [measuredScale, setMeasuredScale] = React.useState(1);
+  const [measuredPages, setMeasuredPages] = React.useState<T[][]>([items]);
   const [pageIndex, setPageIndex] = React.useState(0);
 
+  const itemsPerPage = options?.itemsPerPage;
+  const fixedPageSize = itemsPerPage != null && itemsPerPage > 0;
+
+  // Fixed-page-size mode (spotlight): paginate purely on count, no DOM
+  // measurement or font scaling — each page is a self-fitting, full-bleed
+  // hero, so it must rotate even when the content would "fit" the screen.
+  // Derived (not effect state) so it needs no synchronous setState in an
+  // effect. list/grid fall through to the measured path below.
+  const fixedPages = React.useMemo(
+    () => (fixedPageSize ? chunk(items, itemsPerPage) : null),
+    [fixedPageSize, items, itemsPerPage],
+  );
+
   const recompute = React.useCallback(() => {
+    if (fixedPageSize) return; // measured path is a no-op in fixed mode
     const container = containerRef.current;
     const measure = measureRef.current;
     if (!container || !measure) return;
@@ -52,25 +83,25 @@ export function useOverflowFit<T>(items: T[], paginationIntervalSeconds: number)
     const naturalHeight = measure.scrollHeight;
 
     if (containerHeight <= 0 || naturalHeight <= containerHeight) {
-      setScale(1);
-      setPages([items]);
+      setMeasuredScale(1);
+      setMeasuredPages([items]);
       setPageIndex(0);
       return;
     }
     if (contentFitsAtFloor(naturalHeight, containerHeight)) {
-      setScale(computeFitScale(naturalHeight, containerHeight));
-      setPages([items]);
+      setMeasuredScale(computeFitScale(naturalHeight, containerHeight));
+      setMeasuredPages([items]);
       setPageIndex(0);
       return;
     }
-    setScale(FONT_SCALE_FLOOR);
+    setMeasuredScale(FONT_SCALE_FLOOR);
     const perPage = computeItemsPerPage(naturalHeight, items.length, containerHeight);
-    setPages(chunk(items, perPage));
+    setMeasuredPages(chunk(items, perPage));
     setPageIndex(0);
     // `items` is compared by the caller re-creating this callback each render
     // it changes identity on — that's fine, effects below depend on
     // `recompute`'s identity via useCallback's own dep array.
-  }, [items]);
+  }, [items, fixedPageSize]);
 
   React.useLayoutEffect(() => {
     recompute();
@@ -84,6 +115,11 @@ export function useOverflowFit<T>(items: T[], paginationIntervalSeconds: number)
     return () => observer.disconnect();
   }, [recompute]);
 
+  // In fixed mode the pages are derived (useMemo); otherwise they come from
+  // the measured effect state.
+  const pages = fixedPages ?? measuredPages;
+  const scale = fixedPageSize ? 1 : measuredScale;
+
   React.useEffect(() => {
     if (pages.length <= 1) return;
     const intervalMs = Math.max(3, paginationIntervalSeconds) * 1000;
@@ -93,12 +129,14 @@ export function useOverflowFit<T>(items: T[], paginationIntervalSeconds: number)
     return () => clearInterval(id);
   }, [pages, paginationIntervalSeconds]);
 
+  const safePageIndex = pageIndex < pages.length ? pageIndex : 0;
+
   return {
     containerRef,
     measureRef,
     scale,
-    pageItems: pages[pageIndex] ?? items,
-    pageIndex,
+    pageItems: pages[safePageIndex] ?? items,
+    pageIndex: safePageIndex,
     pageCount: pages.length,
   };
 }

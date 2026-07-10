@@ -21,9 +21,16 @@ export function ScreenRenderer({ resolved }: ScreenRendererProps) {
   const Template = SCREEN_TEMPLATES[screen.template] ?? SCREEN_TEMPLATES.list;
   const baseFontScale = options.fontScale ?? 1;
 
+  // Spotlight shows one full-bleed featured item at a time and rotates through
+  // the whole list on the timer, so it paginates on count (one item/page) —
+  // not on measured height. list/grid keep the measure-then-scale-then-
+  // paginate path (undefined options).
+  const isSpotlight = screen.template === "spotlight";
+
   const { containerRef, measureRef, scale, pageItems, pageIndex, pageCount } = useOverflowFit(
     items,
     paginationIntervalSeconds,
+    isSpotlight ? { itemsPerPage: 1 } : undefined,
   );
 
   const appliedScale = scale * baseFontScale;
@@ -49,36 +56,44 @@ export function ScreenRenderer({ resolved }: ScreenRendererProps) {
         <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)" }} aria-hidden />
       )}
 
-      {/* Hidden measurement pass: full item set, never scaled, used only to
-          decide fit/pagination (see useOverflowFit.ts). */}
-      <div
-        ref={measureRef}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          visibility: "hidden",
-          pointerEvents: "none",
-          padding: "var(--sp-6)",
-        }}
-        aria-hidden
-      >
-        <Template title={title} accentColor={options.accentColor} columns={options.columns} items={items} />
-      </div>
+      {isSpotlight ? (
+        // Full-bleed hero that fills the frame and fits itself — no hidden
+        // measure pass or scale transform needed.
+        <Template title={title} accentColor={options.accentColor} items={pageItems} />
+      ) : (
+        <>
+          {/* Hidden measurement pass: full item set, never scaled, used only to
+              decide fit/pagination (see useOverflowFit.ts). */}
+          <div
+            ref={measureRef}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              visibility: "hidden",
+              pointerEvents: "none",
+              padding: "var(--sp-6)",
+            }}
+            aria-hidden
+          >
+            <Template title={title} accentColor={options.accentColor} columns={options.columns} items={items} />
+          </div>
 
-      {/* Visible layer: current page, scaled to fit. */}
-      <div
-        style={{
-          position: "relative",
-          transform: `scale(${appliedScale})`,
-          transformOrigin: "top left",
-          width: `${100 / appliedScale}%`,
-          padding: "var(--sp-6)",
-        }}
-      >
-        <Template title={title} accentColor={options.accentColor} columns={options.columns} items={pageItems} />
-      </div>
+          {/* Visible layer: current page, scaled to fit. */}
+          <div
+            style={{
+              position: "relative",
+              transform: `scale(${appliedScale})`,
+              transformOrigin: "top left",
+              width: `${100 / appliedScale}%`,
+              padding: "var(--sp-6)",
+            }}
+          >
+            <Template title={title} accentColor={options.accentColor} columns={options.columns} items={pageItems} />
+          </div>
+        </>
+      )}
 
       {pageCount > 1 && (
         <div

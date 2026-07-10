@@ -1,31 +1,15 @@
 import type { NextConfig } from "next";
+import { buildContentSecurityPolicy } from "./src/lib/security/csp";
 
 // PRD §3.6: "CSP headers on display/public routes." /menu and /display/**
 // are the two unauthenticated surfaces the PRD names explicitly. Applied
 // via next.config.ts's headers() (rather than middleware) so it's plain
 // static config, not something a future route change can accidentally skip.
 //
-// `script-src 'self' 'unsafe-inline'` is required because Next.js injects
-// inline bootstrap/hydration `<script>` tags on every page; a stricter
-// nonce-based policy would need per-request nonce plumbing through the App
-// Router's root layout, which is a larger change than this hardening pass.
-// It still meaningfully blocks the class of attack the JSON-LD injection
-// finding raised: `object-src 'none'`, `frame-ancestors 'none'`, and a
-// same-origin-only `default-src`/`connect-src` stop an injected script from
-// loading a remote payload, embedding the page, or exfiltrating data to an
-// attacker-controlled origin, even though it can still run same-origin JS.
-const CSP = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
-  "connect-src 'self'",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "object-src 'none'",
-].join("; ");
+// The policy itself (including the dev-only `'unsafe-eval'` allowance that
+// silences Turbopack's eval() console error) lives in src/lib/security/csp.ts
+// so it's unit-testable — see that file's header for the full rationale.
+const CSP = buildContentSecurityPolicy(process.env.NODE_ENV);
 
 const securityHeaders = [
   { key: "Content-Security-Policy", value: CSP },
