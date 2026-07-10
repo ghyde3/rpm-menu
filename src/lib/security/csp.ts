@@ -30,7 +30,10 @@ export function buildContentSecurityPolicy(nodeEnv: string | undefined): string 
     "default-src 'self'",
     buildScriptSrc(nodeEnv),
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    // `blob:` is the browser blob: URI scheme; the Vercel Blob CDN host is a
+    // separate https origin that must be allowlisted so raw <img> tags (e.g.
+    // the /menu lightbox's full-size photo) aren't CSP-blocked in production.
+    "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
     "font-src 'self' data:",
     "connect-src 'self'",
     "frame-ancestors 'none'",

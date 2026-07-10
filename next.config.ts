@@ -30,6 +30,15 @@ const nextConfig: NextConfig = {
   // external keeps Next's server runtime `require()`-ing it from
   // node_modules unbundled, like Node itself would.
   serverExternalPackages: ["@electric-sql/pglite"],
+  // Item photos in production are served from the Vercel Blob store
+  // (`<storeId>.public.blob.vercel-storage.com`). next/image proxies remote
+  // images through `/_next/image`, which returns 400 for any host not
+  // allowlisted here — so without this every menu photo fails to load in prod.
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "**.public.blob.vercel-storage.com" },
+    ],
+  },
   async headers() {
     return [
       { source: "/menu", headers: securityHeaders },
