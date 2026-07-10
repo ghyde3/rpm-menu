@@ -38,6 +38,14 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // @electric-sql/pglite loads its WASM/data files via
+  // `new URL('./file', import.meta.url)` at runtime. If Turbopack bundles
+  // the package into the server runtime graph, that URL resolution gets
+  // mangled and PGlite throws `TypeError: The "path" argument must be of
+  // type string ... Received an instance of URL` on every query. Marking it
+  // external keeps Next's server runtime `require()`-ing it from
+  // node_modules unbundled, like Node itself would.
+  serverExternalPackages: ["@electric-sql/pglite"],
   async headers() {
     return [
       { source: "/menu", headers: securityHeaders },

@@ -108,12 +108,20 @@ and the resulting route manifest is correct (verified). Prefer a real
 Postgres (`DATABASE_URL`) for CI/build verification when possible; use
 PGlite for fast local iteration (`next dev`).
 
-**Sandboxed-environment note:** this scaffold was verified against the
-PGlite path. `docker compose up -d` could not be exercised in the build
-sandbox because `docker pull` hung on the host's `docker-credential-desktop`
-helper (a sandboxing limitation, not a bug in `docker-compose.yml`). Confirm
-`docker compose up -d` + `DATABASE_URL=postgres://postgres:postgres@localhost:55432/rpm_menu`
-on a normal dev machine before relying on it.
+**Turbopack + PGlite requires `serverExternalPackages`:** `next dev`
+under Turbopack bundles server-side dependencies into its own module
+graph by default. `@electric-sql/pglite` resolves its WASM/data assets at
+runtime via `new URL('./file', import.meta.url)`, and bundling breaks that
+resolution — every DB query throws `TypeError: The "path" argument must be
+of type string ... Received an instance of URL`, even though the exact
+same PGlite client works fine outside Turbopack (`tsx` scripts, Vitest).
+The fix is `next.config.ts`: `serverExternalPackages:
+["@electric-sql/pglite"]`, which tells Next to leave the package
+un-bundled (plain `require()` from `node_modules`, same as Node itself
+would do). This is already set in this repo's `next.config.ts` and
+verified end-to-end: `next dev` with `DB_DRIVER=pglite`, migrate, seed,
+`GET /menu` (200, renders seeded items), and
+`POST /api/auth/sign-in/email` (200) all work with no Docker running.
 
 ## Service layer
 
