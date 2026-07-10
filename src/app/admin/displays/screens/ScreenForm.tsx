@@ -138,7 +138,7 @@ export function ScreenForm({ screen }: ScreenFormProps) {
         setError(result.error);
         return;
       }
-      router.push(`/admin/screens/${result.data.id}`);
+      router.push(`/admin/displays/screens/${result.data.id}`);
     }
   }
 

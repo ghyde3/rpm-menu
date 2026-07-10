@@ -34,8 +34,8 @@ function errorMessage(err: unknown): string {
 }
 
 function revalidateScreens(screenId?: string) {
-  revalidatePath("/admin/screens");
-  if (screenId) revalidatePath(`/admin/screens/${screenId}`);
+  revalidatePath("/admin/displays/screens");
+  if (screenId) revalidatePath(`/admin/displays/screens/${screenId}`);
 }
 
 export async function createScreenAction(input: CreateScreenInput): Promise<ActionResult<{ id: string }>> {

@@ -51,7 +51,7 @@ function errorMessage(err: unknown): string {
 }
 
 function revalidateDisplays() {
-  revalidatePath("/admin/settings/displays");
+  revalidatePath("/admin/displays");
 }
 
 export async function listDisplaysAction(): Promise<ActionResult<DisplayWithStatus[]>> {

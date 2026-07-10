@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { Card } from "@/components/ds";
 
+// Displays is no longer a Settings tab — it was promoted to its own top-level
+// hub (/admin/displays). API Keys and Audit Log live here as Settings
+// sections.
 const SETTINGS_TABS = [
   { label: "Venue", href: "/admin/settings/venue" },
   { label: "Branding", href: "/admin/settings/branding" },
   { label: "Menu Behavior", href: "/admin/settings/menu-behavior" },
   { label: "Users", href: "/admin/settings/users" },
-  { label: "Displays", href: "/admin/settings/displays" },
   { label: "API Keys", href: "/admin/settings/api-keys" },
+  { label: "Audit Log", href: "/admin/settings/audit-log" },
   { label: "Data & Recovery", href: "/admin/settings/data-recovery" },
   { label: "Sessions & Security", href: "/admin/settings/sessions" },
 ];

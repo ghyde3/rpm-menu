@@ -53,7 +53,6 @@ function errorMessage(err: unknown): string {
 
 function revalidateItems() {
   revalidatePath("/admin/items");
-  revalidatePath("/admin/items/bulk");
 }
 
 export async function createItemAction(input: CreateItemInput): Promise<ActionResult<{ id: string }>> {

@@ -86,11 +86,12 @@ export function DataRecoveryPanel({ backupStatus }: { backupStatus: BackupStatus
       <Card>
         <h2 style={sectionTitleStyle}>Recent Changes &amp; Revert</h2>
         <p style={{ fontFamily: "var(--font-body)", color: "var(--text-secondary)", fontSize: "0.9375rem" }}>
-          Every mutation is audited with a one-click revert (§3.5). The full feed lives in the main nav, not here.
+          Every mutation is audited with a one-click revert (§3.5). The full feed lives under Settings › Audit Log,
+          not here.
         </p>
         <div style={{ marginTop: "var(--sp-4)" }}>
-          <Link href="/admin/changes">
-            <Button variant="secondary">Open Recent Changes</Button>
+          <Link href="/admin/settings/audit-log">
+            <Button variant="secondary">Open Audit Log</Button>
           </Link>
         </div>
       </Card>

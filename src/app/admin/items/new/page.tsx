@@ -36,7 +36,7 @@ export default async function NewItemPage() {
           <Card>
             <p style={{ color: "var(--text-secondary)", fontFamily: "var(--font-body)" }}>
               Create a category first —{" "}
-              <Link href="/admin/categories" style={{ color: "var(--accent-primary)" }}>
+              <Link href="/admin/items/categories" style={{ color: "var(--accent-primary)" }}>
                 go to Categories
               </Link>
               .

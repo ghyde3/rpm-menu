@@ -32,9 +32,8 @@ function errorMessage(err: unknown): string {
 }
 
 function revalidateBulk() {
-  revalidatePath("/admin/items/bulk");
   revalidatePath("/admin/items");
-  revalidatePath("/admin/changes");
+  revalidatePath("/admin/settings/audit-log");
 }
 
 export interface BulkPreviewActionResult {

@@ -2,7 +2,7 @@
 
 // Attaching existing tags to an item is a routine, staff-doable action
 // (§2) — tag *definitions* (create/edit/delete/visibility) are owner-only
-// and live on /admin/tags.
+// and live on /admin/items/tags.
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ds";

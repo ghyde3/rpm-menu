@@ -10,6 +10,7 @@ import { db } from "@/db";
 import { getCurrentSession } from "@/lib/auth/session";
 import Link from "next/link";
 import { Button } from "@/components/ds";
+import { HubTabs, ITEMS_HUB_TABS } from "@/components/nav/HubTabs";
 import { ItemsBrowser } from "./ItemsBrowser";
 
 export default async function ItemsPage() {
@@ -19,6 +20,7 @@ export default async function ItemsPage() {
 
   return (
     <div>
+      <HubTabs tabs={ITEMS_HUB_TABS} />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "var(--sp-3)" }}>
         <h1
           style={{
@@ -32,16 +34,6 @@ export default async function ItemsPage() {
           Items
         </h1>
         <div style={{ display: "flex", gap: "var(--sp-2)" }}>
-          <Link href="/admin/categories">
-            <Button variant="secondary" size="sm">
-              Categories
-            </Button>
-          </Link>
-          <Link href="/admin/tags">
-            <Button variant="secondary" size="sm">
-              Tags
-            </Button>
-          </Link>
           <Link href="/admin/items/new">
             <Button size="sm">+ New Item</Button>
           </Link>

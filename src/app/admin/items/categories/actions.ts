@@ -31,7 +31,7 @@ function errorMessage(err: unknown): string {
 }
 
 function revalidateCategories() {
-  revalidatePath("/admin/categories");
+  revalidatePath("/admin/items/categories");
   revalidatePath("/admin/items");
   revalidatePath("/admin/items/new");
 }
@@ -57,7 +57,7 @@ export async function updateCategoryAction(
     const caller = await currentCaller();
     await updateCategory(db, caller, categoryId, input);
     revalidateCategories();
-    revalidatePath(`/admin/categories/${categoryId}`);
+    revalidatePath(`/admin/items/categories/${categoryId}`);
     return { ok: true, data: undefined };
   } catch (err) {
     return { ok: false, error: errorMessage(err) };

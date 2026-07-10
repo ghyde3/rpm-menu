@@ -99,7 +99,7 @@ export function CategoryEditor({ category }: CategoryEditorProps) {
       setError(result.error);
       return;
     }
-    router.push("/admin/categories");
+    router.push("/admin/items/categories");
   }
 
   return (

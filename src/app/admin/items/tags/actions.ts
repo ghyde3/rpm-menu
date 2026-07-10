@@ -34,7 +34,7 @@ function errorMessage(err: unknown): string {
 }
 
 function revalidateTags() {
-  revalidatePath("/admin/tags");
+  revalidatePath("/admin/items/tags");
   revalidatePath("/admin/items");
   revalidatePath("/admin/items/new");
 }

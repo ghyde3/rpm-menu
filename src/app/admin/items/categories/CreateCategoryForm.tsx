@@ -33,7 +33,7 @@ export function CreateCategoryForm() {
       return;
     }
     setName("");
-    router.push(`/admin/categories/${result.data.id}`);
+    router.push(`/admin/items/categories/${result.data.id}`);
   }
 
   return (

@@ -25,7 +25,7 @@ export function DeleteScreenButton({ screenId, screenName }: { screenId: string;
       setError(result.error);
       return;
     }
-    router.push("/admin/screens");
+    router.push("/admin/displays/screens");
   }
 
   return (

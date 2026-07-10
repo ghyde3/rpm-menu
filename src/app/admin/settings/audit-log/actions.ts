@@ -31,9 +31,8 @@ function errorMessage(err: unknown): string {
 }
 
 function revalidateChanges() {
-  revalidatePath("/admin/changes");
+  revalidatePath("/admin/settings/audit-log");
   revalidatePath("/admin/items");
-  revalidatePath("/admin/items/bulk");
 }
 
 export async function revertChangeAction(auditEntryId: string): Promise<ActionResult> {
