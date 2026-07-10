@@ -50,7 +50,7 @@ export interface FilterItemsResult {
   total: number;
 }
 
-/** Filters `allItems` by name/description substring, category, tag
+/** Filters `allItems` by name/description/alias substring, category, tag
  * membership, availability, and pricing type, then pages the result.
  * `total` is the filtered (pre-page) count, for the response envelope's
  * pagination metadata. */
@@ -59,7 +59,11 @@ export function filterAndPageItems(allItems: readonly Item[], options: FilterIte
 
   const filtered = allItems.filter((item) => {
     if (q) {
-      const haystack = `${item.name} ${item.description ?? ""}`.toLowerCase();
+      // Mirrors src/app/admin/items/ItemsBrowser.tsx's client-side search
+      // haystack: name + description + aliases, so seeded aliases (e.g.
+      // "Weihenstephan" -> "Hefeweizen", "PBR" -> "Pabst") are actually
+      // findable through this same query, not just the admin browser.
+      const haystack = [item.name, item.description ?? "", ...item.aliases].join(" ").toLowerCase();
       if (!haystack.includes(q)) return false;
     }
     if (options.categoryId && item.categoryId !== options.categoryId) return false;

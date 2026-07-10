@@ -87,6 +87,36 @@ describe("filterAndPageItems", () => {
     expect(byDescription.items[0].id).toBe("3");
   });
 
+  it("matches on aliases even when the query hits neither name nor description (mirrors ItemsBrowser.tsx's admin search)", () => {
+    const withAliases = [
+      ...items,
+      makeItem({
+        id: "4",
+        name: "Weihenstephaner Hefeweizen",
+        categoryId: "drink",
+        isAvailable: true,
+        pricingType: "fixed",
+        aliases: ["Hefeweizen", "Weihenstephan"],
+      }),
+      makeItem({
+        id: "5",
+        name: "Pabst Blue Ribbon",
+        categoryId: "drink",
+        isAvailable: true,
+        pricingType: "fixed",
+        aliases: ["PBR", "Pabst"],
+      }),
+    ];
+
+    const byAliasWeihenstephan = filterAndPageItems(withAliases, { q: "weihenstephan", limit: 50, offset: 0 });
+    expect(byAliasWeihenstephan.total).toBe(1);
+    expect(byAliasWeihenstephan.items[0].id).toBe("4");
+
+    const byAliasPbr = filterAndPageItems(withAliases, { q: "pbr", limit: 50, offset: 0 });
+    expect(byAliasPbr.total).toBe(1);
+    expect(byAliasPbr.items[0].id).toBe("5");
+  });
+
   it("filters by categoryId", () => {
     const { items: page, total } = filterAndPageItems(items, { categoryId: "drink", limit: 50, offset: 0 });
     expect(total).toBe(1);
