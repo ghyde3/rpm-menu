@@ -17,11 +17,15 @@ import { NotFoundError } from "./base/errors";
 import { processImage, type ImageVariantSpec } from "@/lib/image/process";
 import { getStorageProvider } from "@/lib/storage/interface";
 import { uploadImageInputSchema, type UploadImageInput } from "@/lib/image/validation";
-// Side-effect import: registers the "local" StorageProvider driver so
-// `getStorageProvider()` resolves when `STORAGE_DRIVER` is "local" or unset
-// (the .env.example default). See local-disk-driver.ts's header comment for
-// why a plain import is how drivers register themselves.
+// Side-effect imports: register the storage driver factories so
+// `getStorageProvider()` resolves whichever `STORAGE_DRIVER` selects — "local"
+// (or unset, the .env.example default) for dev, "blob" (Vercel Blob) for
+// production. Both are imported unconditionally; registering a factory is
+// cheap and side-effect-free — the driver is only instantiated (and its SDK
+// only used) when `STORAGE_DRIVER` actually names it. See each driver's header
+// comment for why a plain import is how drivers register themselves.
 import "@/lib/storage/local-disk-driver";
+import "@/lib/storage/vercel-blob-driver";
 
 export type Image = typeof images.$inferSelect;
 

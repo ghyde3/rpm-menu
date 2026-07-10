@@ -32,7 +32,7 @@ export interface StorageProvider {
   delete(key: string): Promise<void>;
 }
 
-export type StorageDriver = "local" | "r2";
+export type StorageDriver = "local" | "r2" | "blob";
 
 /** Reads `STORAGE_DRIVER` (see .env.example) — drivers register themselves
  * via `registerStorageDriver` so foundation never imports driver-specific

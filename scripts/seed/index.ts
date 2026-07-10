@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users, accounts, venueSettings, VENUE_SETTINGS_ID } from "@/db/schema";
 import { importMenu } from "./import-menu";
+import { importPhotos } from "./import-photos";
 
 const ENV_PATH = path.resolve(process.cwd(), ".env");
 // Anything matching this is a dev placeholder, not a real secret — treat it
@@ -95,6 +96,7 @@ async function main() {
   }
 
   await importMenu(db);
+  await importPhotos(db);
 
   console.log("Seed complete.");
 }
