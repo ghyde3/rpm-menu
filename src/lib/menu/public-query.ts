@@ -402,3 +402,21 @@ export function buildMenuJsonLd(data: PublicMenuData, url: string): Record<strin
     })),
   };
 }
+
+/** Serializes a JSON-LD object for safe embedding inside a `<script
+ * type="application/ld+json">` tag. `JSON.stringify` alone does NOT escape
+ * `<`, so a DB-sourced string (item name/description, category name/
+ * tagline, owner-set SEO title/description -- all authored by staff/owner,
+ * not trusted) containing the literal text `</script>` would prematurely
+ * close the tag and let an attacker inject arbitrary executable HTML into
+ * the fully public, unauthenticated `/menu` page. Escaping `<` (plus
+ * U+2028/2029, which are valid in JSON strings but invalid in JS source and
+ * can break some parsers/minifiers) neutralizes that without changing the
+ * parsed JSON-LD value at all. Use this instead of a bare `JSON.stringify`
+ * any time DB-sourced data is embedded in an inline <script> tag. */
+export function safeJsonLdString(data: Record<string, unknown>): string {
+  return JSON.stringify(data)
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}

@@ -117,7 +117,7 @@ function ColorField({
             border: "var(--bw) solid var(--border-strong)",
             borderRadius: "var(--radius-sm)",
             padding: "0 var(--sp-3)",
-            height: 44,
+            height: "var(--tap-target)",
           }}
         >
           <span

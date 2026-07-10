@@ -63,7 +63,7 @@ export function ItemsBrowser({ items, categories, isOwner }: ItemsBrowserProps) 
           placeholder="Search name or alias…"
           style={{
             flex: "1 1 240px",
-            height: 44,
+            height: "var(--tap-target)",
             background: "var(--surface-inset)",
             border: "var(--bw) solid var(--border-strong)",
             borderRadius: "var(--radius-sm)",
@@ -76,7 +76,7 @@ export function ItemsBrowser({ items, categories, isOwner }: ItemsBrowserProps) 
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
           style={{
-            height: 44,
+            height: "var(--tap-target)",
             background: "var(--surface-inset)",
             border: "var(--bw) solid var(--border-strong)",
             borderRadius: "var(--radius-sm)",
@@ -198,7 +198,13 @@ function ItemRow({ item, isOwner }: { item: Item; isOwner: boolean }) {
           <span
             style={{
               fontFamily: "var(--font-heading)",
-              color: isOwner ? "var(--accent-price)" : "var(--text-faint)",
+              // "TBD" (pricingType === "tbd") is a data-quality gap, not a
+              // real price -- give it the same "needs review" accent the
+              // modifier-pricing flow uses (PricingResolver.tsx) so it's
+              // scannable across the whole list, not the same color as a
+              // confirmed price.
+              color: item.pricingType === "tbd" ? "var(--status-warn)" : isOwner ? "var(--accent-price)" : "var(--text-faint)",
+              fontWeight: item.pricingType === "tbd" ? 700 : undefined,
               fontSize: "0.9375rem",
               flexShrink: 0,
             }}

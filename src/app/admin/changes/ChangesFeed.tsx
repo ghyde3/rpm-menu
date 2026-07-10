@@ -46,7 +46,7 @@ const labelStyle: React.CSSProperties = {
 };
 
 const selectStyle: React.CSSProperties = {
-  height: 44,
+  height: "var(--tap-target)",
   background: "var(--surface-inset)",
   border: "var(--bw) solid var(--border-strong)",
   borderRadius: "var(--radius-sm)",
@@ -63,6 +63,27 @@ function describeAction(entry: ChangeEntryDTO): string {
   if (entry.bulkGroup) return `${friendly(entry.bulkGroup.changeType)} (bulk)`;
   if (entry.action.startsWith("revert:")) return `Revert: ${friendly(entry.action.slice("revert:".length))}`;
   return friendly(entry.action);
+}
+
+/** Distinguishes "system" actor rows by their actual `surface` column
+ * (api/mcp/slack/discord/sms) instead of a blanket "System / API" label --
+ * the surface is stored per-row precisely so REST vs. MCP vs. other
+ * automation origins are visually distinguishable for accountability. */
+function describeSurface(surface: string): string {
+  switch (surface) {
+    case "api":
+      return "System / API";
+    case "mcp":
+      return "System / MCP";
+    case "slack":
+      return "System / Slack";
+    case "discord":
+      return "System / Discord";
+    case "sms":
+      return "System / SMS";
+    default:
+      return "System";
+  }
 }
 
 function describeEntity(entry: ChangeEntryDTO): string {
@@ -203,7 +224,7 @@ export function ChangesFeed({ changes, actors, entityTypes }: ChangesFeedProps) 
                     {describeAction(entry)} — {describeEntity(entry)}
                   </div>
                   <div style={{ fontFamily: "var(--font-body)", fontSize: "0.8125rem", color: "var(--text-faint)" }}>
-                    {entry.actorName ?? (entry.actorType === "system" ? "System / API" : entry.actorType === "display" ? "Display" : "Unknown user")}
+                    {entry.actorName ?? (entry.actorType === "system" ? describeSurface(entry.surface) : entry.actorType === "display" ? "Display" : "Unknown user")}
                     {" · "}
                     {new Date(entry.createdAt).toLocaleString()}
                     {entry.bulkGroup && " · part of a bulk change"}

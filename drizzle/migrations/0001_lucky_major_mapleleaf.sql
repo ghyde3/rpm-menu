@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "item_price_variants_one_happy_hour_per_item" ON "item_price_variants" USING btree ("item_id") WHERE "item_price_variants"."kind" = 'happy_hour';

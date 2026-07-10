@@ -160,7 +160,7 @@ export function UsersTable({ initialUsers, currentUserId }: { initialUsers: Safe
             <select
               value={inviteRole}
               onChange={(e) => setInviteRole(e.target.value as Role)}
-              style={{ ...selectStyle, height: 44 }}
+              style={{ ...selectStyle, height: "var(--tap-target)" }}
             >
               <option value="staff">Staff</option>
               <option value="owner">Owner</option>

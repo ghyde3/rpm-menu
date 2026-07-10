@@ -17,7 +17,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const sizes: Record<ButtonSize, React.CSSProperties> = {
   sm: { padding: "0 var(--sp-3)", height: 34, fontSize: "0.8125rem" },
-  md: { padding: "0 var(--sp-5)", height: 44, fontSize: "0.9375rem" },
+  md: { padding: "0 var(--sp-5)", height: "var(--tap-target)", fontSize: "0.9375rem" },
   lg: { padding: "0 var(--sp-6)", height: 54, fontSize: "1.0625rem" },
 };
 

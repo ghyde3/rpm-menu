@@ -36,7 +36,7 @@ export function ScreenRenderer({ resolved }: ScreenRendererProps) {
         width: "100%",
         height: "100%",
         overflow: "hidden",
-        backgroundColor: "var(--surface-base, #101114)",
+        backgroundColor: "var(--surface-base, #121110)",
         backgroundImage: backgroundImageUrl ? `url(${backgroundImageUrl})` : undefined,
         backgroundSize: "cover",
         backgroundPosition: "center",

@@ -484,7 +484,12 @@ export async function importMenu(db: Database): Promise<void> {
     const itemId = itemIdByName.get(itemName);
     if (!itemId) return;
     const group = await createModifierGroup(db, SYSTEM_CALLER, {
-      name: groupName,
+      // QA fix: `addProteinChoiceGroup` creates one fresh group per call,
+      // so several items end up with an identically-named "Protein Choice"/
+      // "Substitute Protein" group, indistinguishable except by hidden UUID
+      // in the admin "attach an existing group" dropdown. Scoping the name
+      // to the item it was created for keeps that dropdown legible.
+      name: `${groupName} (${itemName})`,
       selectionType: "single",
       minSelect: required ? 1 : 0,
       maxSelect: 1,

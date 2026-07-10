@@ -44,7 +44,7 @@ export default async function ModifiersPage() {
       {pricingReview.length > 0 && (
         <Card accent style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
           <h2 style={{ ...sectionHeading, color: "var(--accent-primary)" }}>
-            {pricingReview.length} option{pricingReview.length === 1 ? "" : "s"} need pricing confirmed
+            {pricingReview.length} option{pricingReview.length === 1 ? "" : "s"} {pricingReview.length === 1 ? "needs" : "need"} pricing confirmed
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-2)" }}>
             {pricingReview.map(({ option, group, affectedItems }) => (

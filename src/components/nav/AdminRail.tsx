@@ -17,10 +17,56 @@ export interface AdminRailProps {
   children: React.ReactNode;
 }
 
+// Below this viewport width the rail nav collapses behind a hamburger/
+// drawer so main content can take the full width (mobile QA finding: at
+// phone width the fixed 240px rail left only ~135px of a 375px viewport for
+// content, clipping headings and overlapping controls).
+const MOBILE_BREAKPOINT = 720;
+
+const RESPONSIVE_CSS = `
+  .admin-rail-hamburger { display: none; }
+  .admin-rail-backdrop { display: none; }
+  @media (max-width: ${MOBILE_BREAKPOINT}px) {
+    .admin-rail-hamburger { display: inline-flex; }
+    .admin-rail-nav {
+      position: fixed;
+      top: 68px;
+      left: 0;
+      bottom: 0;
+      z-index: 40;
+      transform: translateX(-100%);
+      transition: transform var(--dur) var(--ease);
+      box-shadow: 4px 0 16px rgba(0, 0, 0, 0.5);
+    }
+    .admin-rail-nav[data-open="true"] {
+      transform: translateX(0);
+    }
+    .admin-rail-backdrop[data-open="true"] {
+      display: block;
+      position: fixed;
+      top: 68px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 30;
+    }
+  }
+`;
+
 export function AdminRail({ userName, userRole, children }: AdminRailProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [signingOut, setSigningOut] = React.useState(false);
+  const [navOpen, setNavOpen] = React.useState(false);
+
+  // Close the mobile drawer whenever the route changes (link click, back
+  // button, etc.) so it never stays open over a new page.
+  const [prevPathname, setPrevPathname] = React.useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    setNavOpen(false);
+  }
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -31,6 +77,7 @@ export function AdminRail({ userName, userRole, children }: AdminRailProps) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "var(--surface-base)" }}>
+      <style>{RESPONSIVE_CSS}</style>
       <header
         style={{
           display: "flex",
@@ -42,7 +89,30 @@ export function AdminRail({ userName, userRole, children }: AdminRailProps) {
           flexShrink: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "baseline", gap: "var(--sp-3)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--sp-3)" }}>
+          <button
+            type="button"
+            className="admin-rail-hamburger"
+            onClick={() => setNavOpen((v) => !v)}
+            aria-label={navOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={navOpen}
+            style={{
+              flexDirection: "column",
+              justifyContent: "center",
+              gap: 4,
+              width: "var(--tap-target)",
+              height: "var(--tap-target)",
+              background: "transparent",
+              border: "var(--bw) solid var(--border-strong)",
+              borderRadius: "var(--radius-sm)",
+              cursor: "pointer",
+              padding: 0,
+            }}
+          >
+            <span style={{ display: "block", width: 18, height: 2, margin: "0 auto", background: "var(--text-primary)" }} />
+            <span style={{ display: "block", width: 18, height: 2, margin: "0 auto", background: "var(--text-primary)" }} />
+            <span style={{ display: "block", width: 18, height: 2, margin: "0 auto", background: "var(--text-primary)" }} />
+          </button>
           <span style={{ fontFamily: "var(--font-accent)", fontSize: 26, color: "var(--rpm-cream)" }}>
             <span style={{ color: "var(--accent-primary)" }}>R</span>PM
           </span>
@@ -77,7 +147,10 @@ export function AdminRail({ userName, userRole, children }: AdminRailProps) {
       </header>
 
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+        <div className="admin-rail-backdrop" data-open={navOpen} onClick={() => setNavOpen(false)} />
         <nav
+          className="admin-rail-nav"
+          data-open={navOpen}
           style={{
             width: 240,
             flexShrink: 0,

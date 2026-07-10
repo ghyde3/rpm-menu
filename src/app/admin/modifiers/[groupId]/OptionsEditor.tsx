@@ -8,7 +8,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input } from "@/components/ds";
 import type { ModifierOption } from "@/db/schema";
-import { formatPrice } from "@/lib/pricing";
+import { formatPrice, resolveOptionPrice } from "@/lib/pricing";
 import { createModifierOptionAction, deleteModifierOptionAction, resolveModifierOptionPricingAction } from "../actions";
 import { PricingResolver } from "../PricingResolver";
 
@@ -17,17 +17,16 @@ export interface OptionsEditorProps {
   options: ModifierOption[];
 }
 
+/** Mirrors ItemModifiersPanel.tsx's `priceLabel` derivation -- both dispatch
+ * through pricing.ts's `resolveOptionPrice`, the addendum-mandated single
+ * choke point for the ambiguous-pricing fail-safe, rather than re-switching
+ * on `pricingMode` locally (see pricing.ts's module doc for why ambiguous
+ * must never fall through to a stale price_delta/replacement column). */
 function pricingLabel(option: ModifierOption): string | null {
-  switch (option.pricingMode) {
-    case "included":
-      return "Included";
-    case "delta":
-      return option.priceDeltaCents != null ? `+${formatPrice(option.priceDeltaCents)}` : null;
-    case "replacement":
-      return option.replacementPriceCents != null ? formatPrice(option.replacementPriceCents) : null;
-    default:
-      return null;
-  }
+  const resolved = resolveOptionPrice(option);
+  if (resolved.kind === "included") return "Included";
+  if (resolved.cents == null) return null;
+  return `${resolved.kind === "delta" ? "+" : ""}${formatPrice(resolved.cents)}`;
 }
 
 export function OptionsEditor({ groupId, options }: OptionsEditorProps) {
@@ -160,7 +159,7 @@ export function OptionsEditor({ groupId, options }: OptionsEditorProps) {
             value={pricingMode}
             onChange={(e) => setPricingMode(e.target.value as "included" | "ambiguous")}
             style={{
-              height: 44,
+              height: "var(--tap-target)",
               background: "var(--surface-inset)",
               border: "var(--bw) solid var(--border-strong)",
               borderRadius: "var(--radius-sm)",

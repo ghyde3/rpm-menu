@@ -31,7 +31,7 @@ const chipStyle = (active: boolean): React.CSSProperties => ({
   display: "inline-flex",
   alignItems: "center",
   gap: "var(--sp-2)",
-  padding: "6px 12px",
+  padding: "var(--sp-1) var(--sp-3)",
   borderRadius: "var(--radius-pill)",
   border: "var(--bw) solid " + (active ? "var(--accent-primary)" : "var(--border-strong)"),
   background: active ? "var(--accent-primary)" : "transparent",
@@ -139,7 +139,7 @@ export function SourceConfigEditor({ screen, categories, tags }: SourceConfigEdi
             value={orderBy}
             onChange={(e) => setOrderBy(e.target.value as "sort_order" | "name" | "price")}
             style={{
-              height: 44,
+              height: "var(--tap-target)",
               background: "var(--surface-inset)",
               border: "var(--bw) solid var(--border-strong)",
               borderRadius: "var(--radius-sm)",

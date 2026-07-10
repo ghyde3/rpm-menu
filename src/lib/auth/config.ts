@@ -6,6 +6,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { totpLoginGate } from "./totp-login-gate";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -57,6 +58,10 @@ export const auth = betterAuth({
       generateId: "uuid",
     },
   },
+  // Gates sign-in on TOTP 2FA for any user who has it enabled (QA fix: 2FA
+  // was previously enrollable but never checked at login). See
+  // ./totp-login-gate.ts's module doc for the full design.
+  plugins: [totpLoginGate],
 });
 
 export type Session = typeof auth.$Infer.Session;

@@ -135,6 +135,67 @@ describe("items service", () => {
     });
   });
 
+  describe("createItemPriceVariant: happy-hour uniqueness", () => {
+    it("allows the first happy_hour variant for an item", async () => {
+      const category = await seedCategory(db);
+      const item = await createItem(db, owner, { name: "House Lager", categoryId: category.id });
+      const variant = await createItemPriceVariant(db, owner, {
+        itemId: item.id,
+        label: "Happy Hour",
+        priceCents: 500,
+        kind: "happy_hour",
+      });
+      expect(variant.kind).toBe("happy_hour");
+    });
+
+    it("rejects a second happy_hour variant for the same item (QA fix: was previously allowed, producing two rows a resolver query could non-deterministically pick between)", async () => {
+      const category = await seedCategory(db);
+      const item = await createItem(db, owner, { name: "House IPA", categoryId: category.id });
+      await createItemPriceVariant(db, owner, {
+        itemId: item.id,
+        label: "Happy Hour",
+        priceCents: 500,
+        kind: "happy_hour",
+      });
+
+      await expect(
+        createItemPriceVariant(db, owner, {
+          itemId: item.id,
+          label: "Happy Hour (again)",
+          priceCents: 700,
+          kind: "happy_hour",
+        }),
+      ).rejects.toThrow();
+    });
+
+    it("still allows multiple `size` variants for the same item (the uniqueness rule is happy_hour-only)", async () => {
+      const category = await seedCategory(db);
+      const item = await createItem(db, owner, { name: "Pretzel", categoryId: category.id });
+      await createItemPriceVariant(db, owner, { itemId: item.id, label: "Half", priceCents: 600, kind: "size" });
+      const second = await createItemPriceVariant(db, owner, {
+        itemId: item.id,
+        label: "Full",
+        priceCents: 1100,
+        kind: "size",
+      });
+      expect(second.kind).toBe("size");
+    });
+
+    it("allows two different items to each have their own happy_hour variant", async () => {
+      const category = await seedCategory(db);
+      const first = await createItem(db, owner, { name: "Well Whiskey", categoryId: category.id });
+      const second = await createItem(db, owner, { name: "Well Vodka", categoryId: category.id });
+      await createItemPriceVariant(db, owner, { itemId: first.id, label: "Happy Hour", priceCents: 400, kind: "happy_hour" });
+      const secondVariant = await createItemPriceVariant(db, owner, {
+        itemId: second.id,
+        label: "Happy Hour",
+        priceCents: 450,
+        kind: "happy_hour",
+      });
+      expect(secondVariant.kind).toBe("happy_hour");
+    });
+  });
+
   describe("setFeaturedSlot", () => {
     it("is a single-transaction swap: assigning a slot to a new item clears the previous holder", async () => {
       const category = await seedCategory(db);

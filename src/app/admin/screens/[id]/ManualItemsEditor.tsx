@@ -136,7 +136,7 @@ export function ManualItemsEditor({ screenId, allItems, initialItemIds }: Manual
           placeholder="Search items to add…"
           style={{
             width: "100%",
-            height: 44,
+            height: "var(--tap-target)",
             background: "var(--surface-inset)",
             border: "var(--bw) solid var(--border-strong)",
             borderRadius: "var(--radius-sm)",

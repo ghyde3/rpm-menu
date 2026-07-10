@@ -113,17 +113,31 @@ export const itemTags = pgTable(
   (table) => [primaryKey({ columns: [table.itemId, table.tagId] })],
 );
 
-export const itemPriceVariants = pgTable("item_price_variants", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  itemId: uuid("item_id")
-    .notNull()
-    .references(() => items.id, { onDelete: "cascade" }),
-  label: text("label").notNull(),
-  priceCents: integer("price_cents").notNull(),
-  sortOrder: integer("sort_order").notNull().default(0),
-  // addendum §2: replaces free-text label matching for happy hour.
-  kind: text("kind", { enum: priceVariantKindEnum }).notNull().default("size"),
-});
+export const itemPriceVariants = pgTable(
+  "item_price_variants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    priceCents: integer("price_cents").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    // addendum §2: replaces free-text label matching for happy hour.
+    kind: text("kind", { enum: priceVariantKindEnum }).notNull().default("size"),
+  },
+  (table) => [
+    // Addendum/PRD intent: "at most one kind=happy_hour price variant per
+    // item." Mirrors the items_featured_slot_key_unique partial-index
+    // pattern above -- without this, two concurrent inserts (e.g. two admin
+    // tabs open on the same item) can both succeed, and
+    // src/lib/screens/resolve.ts's buildPriceInfo would silently pick
+    // whichever row an unordered query happens to return first.
+    uniqueIndex("item_price_variants_one_happy_hour_per_item")
+      .on(table.itemId)
+      .where(sql`${table.kind} = 'happy_hour'`),
+  ],
+);
 
 // Row types, used throughout the service layer + tests.
 export type Category = typeof categories.$inferSelect;

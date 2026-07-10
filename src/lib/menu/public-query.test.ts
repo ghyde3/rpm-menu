@@ -14,7 +14,7 @@ import { updateMenuBehavior } from "@/lib/service/settings/menu-behavior";
 import { updateBranding } from "@/lib/service/settings/branding";
 import { updateVenueSettings } from "@/lib/service/settings/venue";
 import type { ServiceCaller } from "@/lib/service/base";
-import { getPublicMenu, buildMenuJsonLd, tagTone } from "./public-query";
+import { getPublicMenu, buildMenuJsonLd, safeJsonLdString, tagTone } from "./public-query";
 
 const owner: ServiceCaller = {
   actor: { type: "user", id: "00000000-0000-0000-0000-0000000000ee" },
@@ -332,5 +332,24 @@ describe("public-query: buildMenuJsonLd", () => {
     expect(menuItems[0].offers).toEqual({ "@type": "Offer", price: "7.00", priceCurrency: "USD" });
     expect(menuItems[0].suitableForDiet).toEqual(["https://schema.org/VeganDiet"]);
     expect(menuItems[1].offers).toBeUndefined();
+  });
+});
+
+describe("public-query: safeJsonLdString", () => {
+  it("escapes </script> so an admin/staff-authored string can't break out of the inline <script> tag", () => {
+    const malicious = "Test</script><script>alert(document.cookie)</script>";
+    const serialized = safeJsonLdString({ name: malicious });
+
+    // The dangerous literal must never appear verbatim in the output.
+    expect(serialized).not.toContain("</script>");
+    expect(serialized).not.toContain("<script>");
+    // But the escaped form must still round-trip to the exact same value --
+    // this is an encoding change, not a data change.
+    expect(JSON.parse(serialized)).toEqual({ name: malicious });
+  });
+
+  it("produces ordinary output for a string with no special characters", () => {
+    const serialized = safeJsonLdString({ name: "House IPA" });
+    expect(JSON.parse(serialized)).toEqual({ name: "House IPA" });
   });
 });

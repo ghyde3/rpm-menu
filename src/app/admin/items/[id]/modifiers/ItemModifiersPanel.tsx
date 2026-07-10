@@ -31,7 +31,7 @@ function chipTone(excluded: boolean): React.CSSProperties {
     display: "inline-flex",
     alignItems: "center",
     gap: "var(--sp-2)",
-    padding: "6px 10px",
+    padding: "var(--sp-1) var(--sp-3)",
     borderRadius: "var(--radius-pill)",
     border: "var(--bw) solid " + (excluded ? "var(--border-hairline)" : "var(--border-strong)"),
     background: "transparent",
@@ -236,7 +236,7 @@ export function ItemModifiersPanel({ itemId, view, attachableGroups }: ItemModif
                 value={selectedGroupId}
                 onChange={(e) => setSelectedGroupId(e.target.value)}
                 style={{
-                  height: 44,
+                  height: "var(--tap-target)",
                   background: "var(--surface-raised)",
                   border: "var(--bw) solid var(--border-strong)",
                   borderRadius: "var(--radius-sm)",

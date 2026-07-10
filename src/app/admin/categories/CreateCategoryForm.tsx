@@ -53,7 +53,7 @@ export function CreateCategoryForm() {
             value={type}
             onChange={(e) => setType(e.target.value as "food" | "drink")}
             style={{
-              height: 44,
+              height: "var(--tap-target)",
               background: "var(--surface-inset)",
               border: "var(--bw) solid var(--border-strong)",
               borderRadius: "var(--radius-sm)",

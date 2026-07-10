@@ -131,7 +131,7 @@ export function MenuBoard({ data }: MenuBoardProps) {
             border: "var(--bw) solid var(--border-strong)",
             borderRadius: "var(--radius-sm)",
             padding: "0 var(--sp-3)",
-            height: 44,
+            height: "var(--tap-target)",
           }}
         >
           <span aria-hidden="true" style={{ color: "var(--text-faint)", fontSize: 14 }}>

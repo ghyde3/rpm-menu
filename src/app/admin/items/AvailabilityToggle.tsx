@@ -45,7 +45,21 @@ export function AvailabilityToggle({ itemId, initialAvailable }: AvailabilityTog
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-      <Switch checked={available} onChange={handleChange} disabled={pending} label={available ? "On" : "86'd"} />
+      <Switch
+        checked={available}
+        onChange={handleChange}
+        disabled={pending}
+        label={available ? "On" : "86'd"}
+        id={`sw-${itemId}`}
+        // The ds/core/Switch.tsx track is a faithful 46x26px port of the
+        // design system's Switch.jsx (not something this app layer should
+        // resize), which lands under the --tap-target: 44px minimum this
+        // primary mobile "one-tap 86" control should meet. `style` merges
+        // onto the component's own <label>, so this grows the label's
+        // actual clickable/tappable box to 44px tall without touching the
+        // visual track size.
+        style={{ minHeight: "var(--tap-target)" }}
+      />
       {error && (
         <span style={{ color: "var(--accent-primary)", fontSize: "0.6875rem", fontFamily: "var(--font-body)" }}>
           {error}

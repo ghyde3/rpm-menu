@@ -199,8 +199,17 @@ export async function resolveScreenContent(db: DbClient, screenId: string): Prom
     tagsByItem.set(row.itemId, list);
   }
 
+  // Ordered by id so "the" happy_hour variant (buildPriceInfo's
+  // `.find(v => v.kind === "happy_hour")`) is deterministic even before a
+  // race can be fully ruled out by the DB partial-unique index on
+  // (item_id) WHERE kind = 'happy_hour' -- an unordered query previously
+  // let two concurrently-inserted happy_hour rows "win" nondeterministically.
   const variantRows: ItemPriceVariant[] = itemIds.length
-    ? await db.select().from(itemPriceVariants).where(inArray(itemPriceVariants.itemId, itemIds))
+    ? await db
+        .select()
+        .from(itemPriceVariants)
+        .where(inArray(itemPriceVariants.itemId, itemIds))
+        .orderBy(itemPriceVariants.id)
     : [];
   const variantsByItem = new Map<string, ItemPriceVariant[]>();
   for (const v of variantRows) {

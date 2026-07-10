@@ -153,7 +153,7 @@ export default function DisplayRenderPage() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: "var(--surface-base, #101114)",
+            background: "var(--surface-base, #121110)",
             color: "var(--text-faint)",
             fontFamily: "var(--font-body)",
             fontSize: "1.5rem",
@@ -166,7 +166,7 @@ export default function DisplayRenderPage() {
           style={{
             width: "100%",
             height: "100%",
-            background: "var(--surface-base, #101114)",
+            background: "var(--surface-base, #121110)",
           }}
         />
       )}

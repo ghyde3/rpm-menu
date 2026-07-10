@@ -54,7 +54,7 @@ export function Input({
           border: "var(--bw) solid " + (focus ? "var(--accent-primary)" : "var(--border-strong)"),
           borderRadius: "var(--radius-sm)",
           padding: "0 var(--sp-3)",
-          height: 44,
+          height: "var(--tap-target)",
           transition: "border-color var(--dur) var(--ease)",
           opacity: disabled ? 0.5 : 1,
         }}

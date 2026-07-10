@@ -16,7 +16,7 @@ const labelStyle: React.CSSProperties = {
 };
 
 const selectStyle: React.CSSProperties = {
-  height: 44,
+  height: "var(--tap-target)",
   background: "var(--surface-inset)",
   border: "var(--bw) solid var(--border-strong)",
   borderRadius: "var(--radius-sm)",

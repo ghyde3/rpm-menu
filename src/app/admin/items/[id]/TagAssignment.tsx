@@ -67,7 +67,7 @@ export function TagAssignment({ itemId, allTags, initialTagIds }: TagAssignmentP
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "var(--sp-2)",
-                padding: "6px 12px",
+                padding: "var(--sp-1) var(--sp-3)",
                 borderRadius: "var(--radius-pill)",
                 border: "var(--bw) solid " + (active ? "var(--accent-primary)" : "var(--border-strong)"),
                 background: active ? "var(--accent-primary)" : "transparent",

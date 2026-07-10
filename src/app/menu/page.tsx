@@ -12,7 +12,7 @@
 // behavior docs/architecture.md and the PRD ask for: no time-based
 // `revalidate` export here on purpose.
 import { db } from "@/db";
-import { getPublicMenu, buildMenuJsonLd } from "@/lib/menu/public-query";
+import { getPublicMenu, buildMenuJsonLd, safeJsonLdString } from "@/lib/menu/public-query";
 import { MenuBoard } from "./MenuBoard";
 import type { Metadata } from "next";
 
@@ -42,7 +42,7 @@ export default async function PublicMenuPage() {
       {/* schema.org Menu markup (§3.4 SEO basics). Headings themselves come
           for free from @/components/ds: MenuSection -> <h2> per category,
           MenuItem -> <h3> per item title. */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdString(jsonLd) }} />
       <MenuBoard data={data} />
     </>
   );

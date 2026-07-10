@@ -32,9 +32,9 @@ export interface DisplaysManagerProps {
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const HEARTBEAT_COLOR: Record<HeartbeatStatus, string> = {
-  online: "var(--accent-new, #3ba55d)",
-  warning: "#e8b93a",
-  offline: "var(--text-faint)",
+  online: "var(--status-live)",
+  warning: "var(--status-warn)",
+  offline: "var(--status-off)",
 };
 
 const HEARTBEAT_LABEL: Record<HeartbeatStatus, string> = {
@@ -82,7 +82,7 @@ function selectStyle(): React.CSSProperties {
     color: "var(--text-primary)",
     fontFamily: "var(--font-body)",
     fontSize: "var(--fs-body-sm)",
-    height: 44,
+    height: "var(--tap-target)",
     padding: "0 var(--sp-3)",
   };
 }

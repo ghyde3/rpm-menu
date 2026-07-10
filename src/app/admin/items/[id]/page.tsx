@@ -14,7 +14,8 @@ import { ItemForm } from "../ItemForm";
 import { TagAssignment } from "./TagAssignment";
 import { PriceVariantsEditor } from "./PriceVariantsEditor";
 import { DeleteItemButton } from "./DeleteItemButton";
-import { FeaturedSlotPicker, KNOWN_FEATURED_SLOTS, type FeaturedSlotHolder } from "./FeaturedSlotPicker";
+import { FeaturedSlotPicker } from "./FeaturedSlotPicker";
+import { KNOWN_FEATURED_SLOTS, type FeaturedSlotHolder } from "./featured-slots";
 
 export default async function ItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

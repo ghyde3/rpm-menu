@@ -101,7 +101,7 @@ export default function DisplayPairingPage() {
         alignItems: "center",
         justifyContent: "center",
         gap: "var(--sp-6)",
-        background: "var(--surface-base, #101114)",
+        background: "var(--surface-base, #121110)",
         color: "var(--text-primary)",
         fontFamily: "var(--font-body)",
         padding: "var(--sp-6)",

@@ -10,21 +10,9 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ds";
 import { setFeaturedSlotAction, clearFeaturedSlotAction } from "../actions";
+import { KNOWN_FEATURED_SLOTS, type FeaturedSlotHolder } from "./featured-slots";
 
-/** The two named slots the addendum/PRD describe (drink_of_the_week,
- * dessert_of_the_day). `featured_slot_key` is actually a free-text column —
- * this picker only *offers* these two plus "none", but keeps any other
- * value an item already carries selectable (see `options` below) rather
- * than silently dropping it. */
-export const KNOWN_FEATURED_SLOTS: { key: string; label: string }[] = [
-  { key: "drink_of_the_week", label: "Drink of the Week" },
-  { key: "dessert_of_the_day", label: "Dessert of the Day" },
-];
-
-export interface FeaturedSlotHolder {
-  id: string;
-  name: string;
-}
+export type { FeaturedSlotHolder };
 
 export interface FeaturedSlotPickerProps {
   itemId: string;
@@ -101,7 +89,7 @@ export function FeaturedSlotPicker({ itemId, currentSlotKey, holders }: Featured
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "var(--sp-2)",
-                padding: "6px 12px",
+                padding: "var(--sp-1) var(--sp-3)",
                 borderRadius: "var(--radius-pill)",
                 border: "var(--bw) solid " + (active ? "var(--accent-primary)" : "var(--border-strong)"),
                 background: active ? "var(--accent-primary)" : "transparent",

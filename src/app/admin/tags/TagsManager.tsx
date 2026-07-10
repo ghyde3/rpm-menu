@@ -114,7 +114,7 @@ export function TagsManager({ initialTags, isOwner }: TagsManagerProps) {
                 value={visibility}
                 onChange={(e) => setVisibility(e.target.value as "public" | "private")}
                 style={{
-                  height: 44,
+                  height: "var(--tap-target)",
                   background: "var(--surface-inset)",
                   border: "var(--bw) solid var(--border-strong)",
                   borderRadius: "var(--radius-sm)",

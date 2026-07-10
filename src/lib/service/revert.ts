@@ -106,9 +106,34 @@ export async function listRecentChanges(
 
   return page.map((r) => ({
     ...r,
+    before: redactSensitiveFields(r.before),
+    after: redactSensitiveFields(r.after),
     actorName: r.actorType === "user" && r.actorId ? (nameById.get(r.actorId) ?? null) : null,
     bulkGroup: parseBulkGroupAction(r.action),
   }));
+}
+
+/** Fields that are never worth round-tripping to a reader, even a
+ * `read`-scoped API key/MCP caller: `revokeApiKey`/`revokeDisplay` pass the
+ * full pre-mutation row (including the credential hash) as `before` so
+ * revert (which reads straight from `audit_log` in the DB, not through this
+ * function -- see `revertAuditEntry`'s call site below) can restore it
+ * verbatim. That's legitimate for revert, but this *read* path has no
+ * reason to expose a hash tied to a specific credential to every caller
+ * with just `read` scope -- `createApiKey`'s own `after` already avoids
+ * persisting it in the first place (see api-keys.ts). Redacting here (not
+ * at write time) keeps revert working while closing the read-side gap. */
+const SENSITIVE_JSON_FIELDS = ["keyHash", "tokenHash"];
+
+function redactSensitiveFields(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const hasSensitiveField = SENSITIVE_JSON_FIELDS.some((f) => f in (value as Record<string, unknown>));
+  if (!hasSensitiveField) return value;
+  const redacted = { ...(value as Record<string, unknown>) };
+  for (const field of SENSITIVE_JSON_FIELDS) {
+    if (field in redacted) redacted[field] = "[redacted]";
+  }
+  return redacted;
 }
 
 export interface ChangeActor {

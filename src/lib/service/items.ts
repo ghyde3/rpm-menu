@@ -1,7 +1,7 @@
 // Items CRUD + availability toggle + featured-slot swap (PRD §5.1, addendum
 // §2). Every mutation: Zod-validate -> role-check -> write -> withAudit ->
 // bumpAffectedScreens, per docs/architecture.md's "Service layer" contract.
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   items,
   itemTags,
@@ -348,6 +348,26 @@ export async function createItemPriceVariant(
   requireOwnerCaller(caller);
   const input = createItemPriceVariantSchema.parse(rawInput);
   await getItemOrThrow(db, input.itemId);
+
+  // §2 / PriceVariantsEditor's own contract: "at most one kind=happy_hour
+  // price variant per item." The UI only ever offers "Set Happy Hour
+  // Price" when none exists yet, but that check is client-side state that
+  // can go stale (two tabs open on the same item, a slow double-submit).
+  // Reject here so the invariant holds even under a race, instead of
+  // silently leaving two happy_hour rows for buildPriceInfo's unordered
+  // `.find()` to pick between. The DB's partial unique index
+  // (item_price_variants_one_happy_hour_per_item) is the ultimate
+  // backstop; this check gives a clean ConflictError instead of a raw
+  // constraint-violation error surfacing to the caller.
+  if (input.kind === "happy_hour") {
+    const [existingHappyHour] = await db
+      .select()
+      .from(itemPriceVariants)
+      .where(and(eq(itemPriceVariants.itemId, input.itemId), eq(itemPriceVariants.kind, "happy_hour")));
+    if (existingHappyHour) {
+      throw new ConflictError("This item already has a happy hour price. Delete it before adding a new one.");
+    }
+  }
 
   const [created] = await db.insert(itemPriceVariants).values(input).returning();
   await bumpAffectedScreens(db, { itemIds: [input.itemId] });
