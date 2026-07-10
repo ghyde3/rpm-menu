@@ -14,7 +14,11 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   }
 
   return (
-    <AdminRail userName={session.user.name} userRole={session.user.role}>
+    <AdminRail
+      userName={session.user.name}
+      userEmail={session.user.email}
+      userRole={session.user.role}
+    >
       {children}
     </AdminRail>
   );
