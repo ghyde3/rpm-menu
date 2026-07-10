@@ -5,6 +5,7 @@
 export * from "./auth";
 export * from "./images";
 export * from "./catalog";
+export * from "./itemImages";
 export * from "./modifiers";
 export * from "./screens";
 export * from "./displays";

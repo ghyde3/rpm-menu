@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getItem, getItemTagIds, listItemPriceVariants, listItems } from "@/lib/service/items";
 import { listCategories } from "@/lib/service/categories";
 import { listTags } from "@/lib/service/tags";
+import { listItemImages } from "@/lib/service/item-images";
 import { NotFoundError } from "@/lib/service/base/errors";
 import { db } from "@/db";
 import { getCurrentSession } from "@/lib/auth/session";
@@ -15,6 +16,7 @@ import { TagAssignment } from "./TagAssignment";
 import { PriceVariantsEditor } from "./PriceVariantsEditor";
 import { DeleteItemButton } from "./DeleteItemButton";
 import { FeaturedSlotPicker } from "./FeaturedSlotPicker";
+import { ItemGallery } from "./ItemGallery";
 import { KNOWN_FEATURED_SLOTS, type FeaturedSlotHolder } from "./featured-slots";
 
 export default async function ItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -28,12 +30,13 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
   });
   if (!item) notFound();
 
-  const [categories, tags, currentTagIds, priceVariants, allItems] = await Promise.all([
+  const [categories, tags, currentTagIds, priceVariants, allItems, gallery] = await Promise.all([
     listCategories(db),
     listTags(db),
     getItemTagIds(db, id),
     listItemPriceVariants(db, id),
     listItems(db),
+    listItemImages(db, id),
   ]);
 
   // Current holder of each known featured slot (excluding this item itself)
@@ -77,6 +80,27 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
 
       <div style={{ marginTop: "var(--sp-5)", display: "flex", flexDirection: "column", gap: "var(--sp-5)" }}>
         <ItemForm categories={categories} isOwner={isOwner} item={item} />
+
+        <Card>
+          <h2
+            style={{
+              fontFamily: "var(--font-heading)",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "var(--ls-caps)",
+              color: "var(--text-muted)",
+              marginBottom: "var(--sp-3)",
+            }}
+          >
+            Photos
+          </h2>
+          <p style={{ color: "var(--text-faint)", fontFamily: "var(--font-body)", fontSize: "0.8125rem", marginTop: 0 }}>
+            The photo badged &ldquo;Hero&rdquo; is the one shown on menus and screens. Reorder with the arrows —
+            the rest are just gallery order.
+          </p>
+          <ItemGallery itemId={item.id} initialGallery={gallery} />
+        </Card>
 
         <Card>
           <h2

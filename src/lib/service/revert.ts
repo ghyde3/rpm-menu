@@ -19,6 +19,7 @@ import "@/lib/service/screens";
 import "@/lib/service/displays";
 import "@/lib/service/schedules";
 import "@/lib/service/settings/api-keys";
+import "@/lib/service/item-images";
 
 import { desc, eq, inArray } from "drizzle-orm";
 import { auditLog, users, type ActorType, type EntityType } from "@/db/schema";

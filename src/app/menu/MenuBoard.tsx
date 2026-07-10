@@ -16,6 +16,7 @@ import * as React from "react";
 import Image from "next/image";
 import { MenuSection, MenuItem } from "@/components/ds";
 import type { PublicMenuData, PublicMenuCategory, PublicMenuItem } from "@/lib/menu/public-query";
+import { ItemGallery } from "./ItemGallery";
 
 export interface MenuBoardProps {
   data: PublicMenuData;
@@ -294,23 +295,13 @@ function MenuBoardItem({ item }: { item: PublicMenuItem }) {
     />
   );
 
+  // Items with no photos render exactly as before this gallery feature
+  // existed — no empty box, no layout shift.
   if (!item.imageUrl) return row;
 
   return (
     <div style={{ display: "flex", gap: "var(--sp-4)" }}>
-      <div
-        style={{
-          position: "relative",
-          width: 72,
-          height: 72,
-          flexShrink: 0,
-          borderRadius: "var(--radius-sm)",
-          overflow: "hidden",
-          border: "var(--bw-hair) solid var(--border-hairline)",
-        }}
-      >
-        <Image src={item.imageUrl} alt={item.name} fill sizes="72px" style={{ objectFit: "cover" }} />
-      </div>
+      <ItemGallery heroUrl={item.imageUrl} photos={item.gallery} itemName={item.name} />
       <div style={{ flex: 1, minWidth: 0 }}>{row}</div>
     </div>
   );

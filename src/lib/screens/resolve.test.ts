@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeAll } from "vitest";
 import { createTestDb } from "@/db/test-db";
 import type { Database } from "@/db";
-import { categories, items, itemTags, tags, itemPriceVariants } from "@/db/schema";
+import { categories, items, itemTags, tags, itemPriceVariants, images } from "@/db/schema";
 import { createScreen, setScreenItems, updateScreen } from "@/lib/service/screens";
 import { resolveScreenContent } from "./resolve";
 import type { ServiceCaller } from "@/lib/service/base";
@@ -213,5 +213,36 @@ describe("resolveScreenContent", () => {
     const screen = await createScreen(db, owner, { name: "Unconfigured Query Screen", sourceMode: "query" });
     const resolved = await resolveScreenContent(db, screen.id);
     expect(resolved.items).toEqual([]);
+  });
+
+  it("resolves an item's hero image (items.image_id) to a display-preferring URL, and null for items with none", async () => {
+    const [cat] = await db.insert(categories).values({ name: "Snacks", type: "food" }).returning();
+    const [image] = await db
+      .insert(images)
+      .values({
+        key: "images/hero-fixture",
+        variants: { thumb: "/api/upload/files/thumb.webp", card: "/api/upload/files/card.webp", display: "/api/upload/files/display.webp" },
+      })
+      .returning();
+    const [withImage] = await db
+      .insert(items)
+      .values({ name: "Pretzel Bites", categoryId: cat.id, priceCents: 900, imageId: image.id })
+      .returning();
+    const [withoutImage] = await db
+      .insert(items)
+      .values({ name: "Plain Chips", categoryId: cat.id, priceCents: 500 })
+      .returning();
+
+    const screen = await createScreen(db, owner, {
+      name: "Snacks Screen",
+      sourceMode: "manual",
+    });
+    await setScreenItems(db, owner, screen.id, { itemIds: [withImage.id, withoutImage.id] });
+
+    const resolved = await resolveScreenContent(db, screen.id);
+    // TV templates are space-constrained but still prefer the largest
+    // available variant (display > card > thumb) — see pickImageUrl.
+    expect(resolved.items.find((i) => i.id === withImage.id)!.imageUrl).toBe("/api/upload/files/display.webp");
+    expect(resolved.items.find((i) => i.id === withoutImage.id)!.imageUrl).toBeNull();
   });
 });

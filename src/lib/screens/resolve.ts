@@ -19,10 +19,12 @@ import {
   itemTags,
   tags,
   itemPriceVariants,
+  images,
   type Item,
   type Category,
   type Tag,
   type ItemPriceVariant,
+  type ImageVariants,
 } from "@/db/schema";
 import type { DbClient } from "@/lib/service/base";
 import { NotFoundError } from "@/lib/service/base/errors";
@@ -72,6 +74,18 @@ export interface ResolvedScreen {
  * anything else — including gluten-free/non-alcoholic, a known design-system
  * gap flagged in docs/architecture.md — falls back to `tone="default"`
  * rather than inventing an off-token color. */
+/** Prefers the "display" variant for the TV board (highest-res of the three
+ * — the board is a large, space-constrained surface, unlike the public
+ * menu's inline thumbnails), falling back to "card"/"thumb" if a
+ * differently-processed image is missing a variant. Mirrors
+ * src/lib/menu/public-query.ts's `pickImageUrl` (background image
+ * resolution just above already uses this same display->card->thumb
+ * preference order). */
+function pickImageUrl(variants: ImageVariants | null | undefined): string | null {
+  if (!variants) return null;
+  return variants.display ?? variants.card ?? variants.thumb ?? Object.values(variants).find(Boolean) ?? null;
+}
+
 function toneForTagName(name: string): TagTone {
   const key = name.trim().toLowerCase();
   if (key === "new") return "new";
@@ -218,6 +232,19 @@ export async function resolveScreenContent(db: DbClient, screenId: string): Prom
     variantsByItem.set(v.itemId, list);
   }
 
+  // Hero image only (§3.2 TV templates are space-constrained; the
+  // multi-photo gallery is a public-menu-only concept, per the addendum —
+  // `items.image_id` is kept in sync with whichever gallery row is primary
+  // by src/lib/service/item-images.ts, so reading it here is exactly as
+  // fresh as reading the gallery itself). One batch query, no N+1.
+  const heroImageIds = Array.from(
+    new Set(matchedItems.map((i) => i.imageId).filter((id): id is string => id != null)),
+  );
+  const heroImageRows = heroImageIds.length
+    ? await db.select().from(images).where(inArray(images.id, heroImageIds))
+    : [];
+  const heroImageUrlById = new Map(heroImageRows.map((img) => [img.id, pickImageUrl(img.variants)]));
+
   let backgroundImageUrl: string | null = null;
   if (screen.backgroundImageKey) {
     try {
@@ -247,10 +274,7 @@ export async function resolveScreenContent(db: DbClient, screenId: string): Prom
       id: item.id,
       name: item.name,
       isAvailable: item.isAvailable,
-      imageUrl: null, // items don't yet carry a resolvable image URL here — the
-      // image-pipeline unit's `imageId` FK is wired through the schema/forms
-      // but has no admin upload control yet (see wave-1 notes); once items
-      // gain a resolvable image, wire it in here without touching templates.
+      imageUrl: item.imageId ? heroImageUrlById.get(item.imageId) ?? null : null,
       description: effectiveShowDescription ? line.description : null,
       attributeLine: showAttributes ? line.attributeLine : null,
       price,

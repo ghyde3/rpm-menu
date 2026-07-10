@@ -41,6 +41,7 @@ import type { DbClient } from "@/lib/service/base";
 import { getVenueSettings } from "@/lib/service/settings/venue";
 import { getBrandingSettings, BRANDING_FONT_STACKS, type BrandingFont } from "@/lib/service/settings/branding";
 import { getMenuBehaviorSettings } from "@/lib/service/settings/menu-behavior";
+import { listItemImagesForItems, type ItemImageGalleryEntry } from "@/lib/service/item-images";
 import { formatPrice } from "@/lib/pricing";
 import { getItemDisplayLine, resolveDisplayConfig } from "@/lib/menu/display-line";
 import type { TagTone } from "@/components/ds";
@@ -84,6 +85,14 @@ export interface PublicMenuTag {
 
 // --- Result shape ------------------------------------------------------------
 
+/** One additional (non-hero) gallery photo, sized for a small thumbnail
+ * strip (`thumbUrl`) with a full-size `url` to promote into the hero slot
+ * when a visitor picks it (src/app/menu/ItemGallery.tsx). */
+export interface PublicMenuGalleryPhoto {
+  url: string;
+  thumbUrl: string;
+}
+
 export interface PublicMenuItem {
   id: string;
   name: string;
@@ -104,6 +113,12 @@ export interface PublicMenuItem {
   note: string | undefined;
   isAvailable: boolean;
   imageUrl: string | null;
+  /** Additional (non-primary) gallery photos, ordered per the admin's
+   * chosen sort order, `[]` when the item has zero or one photo total
+   * (matches `imageUrl` — both are `showImages`-gated and both empty for
+   * an item with no gallery, so no-photo items render identically to
+   * before this field existed). */
+  gallery: PublicMenuGalleryPhoto[];
   tags: PublicMenuTag[];
   featuredSlotKey: string | null;
   /** Human-readable form of `featuredSlotKey` (e.g. "Drink Of The Week"),
@@ -153,6 +168,14 @@ export interface PublicMenuData {
 function pickImageUrl(variants: ImageVariants | null | undefined): string | null {
   if (!variants) return null;
   return variants.card ?? variants.display ?? variants.thumb ?? Object.values(variants).find(Boolean) ?? null;
+}
+
+/** Smaller variant preference for the gallery's thumbnail strip (the
+ * additional, non-hero photos) — opposite priority from `pickImageUrl`,
+ * which favors the larger "card" variant for the hero image. */
+function pickThumbUrl(variants: ImageVariants | null | undefined): string | null {
+  if (!variants) return null;
+  return variants.thumb ?? variants.card ?? variants.display ?? Object.values(variants).find(Boolean) ?? null;
 }
 
 function resolveImageUrl(imageId: string | null, urlById: Map<string, string | null>): string | null {
@@ -248,6 +271,10 @@ export async function getPublicMenu(db: DbClient): Promise<PublicMenuData> {
     : [];
   const imageUrlById = new Map(imageRows.map((img) => [img.id, pickImageUrl(img.variants)]));
 
+  // Batch, N+1-safe gallery read (src/lib/service/item-images.ts) — one
+  // join query for every item's photos, keyed by itemId.
+  const galleryByItem = await listItemImagesForItems(db, itemIds);
+
   const publicTagsByItem = new Map<string, PublicMenuTag[]>();
   for (const row of itemTagRows) {
     if (row.tag.visibility !== "public") continue; // §3.4 hard rule: private tags never render here.
@@ -284,6 +311,7 @@ export async function getPublicMenu(db: DbClient): Promise<PublicMenuData> {
       imageUrlById,
       publicTagsByItem,
       sizeVariantsByItem,
+      galleryByItem,
     }))
     // A category with zero renderable items (none created yet, or all
     // hidden by the unavailable-item setting) contributes an empty section
@@ -324,6 +352,19 @@ interface CategoryBuildContext {
   imageUrlById: Map<string, string | null>;
   publicTagsByItem: Map<string, PublicMenuTag[]>;
   sizeVariantsByItem: Map<string, ItemPriceVariant[]>;
+  galleryByItem: Map<string, ItemImageGalleryEntry[]>;
+}
+
+/** Non-primary gallery entries, in sort order, mapped to the compact
+ * {url, thumbUrl} shape the public menu's thumbnail strip needs. The
+ * primary entry is deliberately excluded — it's already rendered as the
+ * item's prominent hero image via `imageUrl` (item.imageId), so including
+ * it again here would duplicate it in the strip. */
+function buildGalleryPhotos(entries: ItemImageGalleryEntry[]): PublicMenuGalleryPhoto[] {
+  return entries
+    .filter((entry) => !entry.isPrimary)
+    .map((entry) => ({ url: pickImageUrl(entry.variants) ?? "", thumbUrl: pickThumbUrl(entry.variants) ?? "" }))
+    .filter((photo) => photo.url && photo.thumbUrl);
 }
 
 function buildPublicCategory(
@@ -355,6 +396,7 @@ function buildPublicCategory(
       note,
       isAvailable: item.isAvailable,
       imageUrl: ctx.showImages ? resolveImageUrl(item.imageId, ctx.imageUrlById) : null,
+      gallery: ctx.showImages ? buildGalleryPhotos(ctx.galleryByItem.get(item.id) ?? []) : [],
       tags: tagsForItem,
       featuredSlotKey: item.featuredSlotKey,
       featuredLabel: humanizeFeaturedSlot(item.featuredSlotKey),

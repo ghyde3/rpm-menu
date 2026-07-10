@@ -25,6 +25,7 @@ export const ENTITY_TYPES = [
   "screen",
   "display",
   "display_schedule",
+  "item_image",
   "api_key",
   "setting",
   "pending_change",
